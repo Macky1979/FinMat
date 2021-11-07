@@ -28,23 +28,28 @@ class myDate
 
     public:
         // object constructors
+        myDate(){date_str = "16010101"; date_int = 16010101; year = 1601; month = 1; day = 1; days_no = 0;};
         myDate(const string &, const string &);
         myDate(const int &);
+
+        // copy constructor
+        myDate (const myDate &_date){date_str = _date.get_date_str(); this->recalc();};
 
         // object destructor
         ~myDate(){};
 
         // overloaded operators
-        long operator - (const myDate&);
+        long operator- (const myDate&);
+        myDate& operator= (const myDate &_date){date_str = _date.get_date_str(); this->recalc();};
 
         // function declarations
         void recalc();
-        int get_year(){return year;}
-        int get_month(){return month;}
-        int get_day(){return day;}
-        int get_days_no(){return days_no;}
-        int get_date_int(){return date_int;}
-        string get_date_str(){return date_str;}
+        int get_year() const {return year;}
+        int get_month() const {return month;}
+        int get_day() const {return day;}
+        int get_days_no() const {return days_no;}
+        int get_date_int() const {return date_int;}
+        string get_date_str() const {return date_str;}
         void add(const string &date_freq);
 };
 
@@ -211,5 +216,26 @@ void myDate::add(const string &date_freq)
 
 long myDate::operator- (const myDate &date2)
 {
-    return days_no - date2.days_no;
+    return days_no - date2.get_days_no();
+}
+
+// create a vector of dates
+vector<myDate> * create_date_serie(const string &date_str_begin, const string &date_str_end, const string &date_freq, const string &date_format="yyyymmdd")
+{
+    // create vector to hold date serie
+    vector<myDate> * date_serie = new vector<myDate>();
+
+    //create date end and current date objects
+    myDate date_end(date_str_end, date_format);
+    myDate date_current(date_str_begin, date_format);
+
+    // create date series
+    while (date_current.get_date_int() < date_end.get_date_int())
+    {
+        (*date_serie).push_back(date_current);
+        date_current.add(date_freq);
+    }
+
+    // return pointer to the vector with date serie
+    return date_serie;
 }

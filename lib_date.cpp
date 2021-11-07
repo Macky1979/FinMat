@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <vector>
 #include "lib_date.h"
 
 using namespace std;
@@ -70,7 +71,6 @@ int * add_months(const int &year, const int &month, const int &day, const int &m
     _day = days_in_month(_year, _month);
     if (_day > day)
         _day = day;
-
 
     // return result
     date[0] = _year;

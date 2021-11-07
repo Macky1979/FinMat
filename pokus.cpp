@@ -1,32 +1,16 @@
 #include <iostream>
 #include <string>
+#include <vector>
+#include <list>
+#include "lib_date.h"
 
 using namespace std;
 
-// main function to call above defined function.
-int main ()
-{
-   string text;
-   string * ptr;
-
-   text = "ahoj!";
-   ptr = &text;
-
-   cout << text << endl;
-   cout << *ptr << endl;
-
-   text = "nazdar!";
-
-   cout << text << endl;
-   cout << *ptr << endl;
-
-   ptr = new string("sbohem!");
-
-   cout << text << endl;
-   cout << *ptr << endl;
-
-   delete ptr;
-
+int main() {
+   const myDate &date(19791230);
+   //cout << date.get_date_str() << endl;
+   const int &x = 1;
+   const int &y = 2;
+   cout << x + y << endl;
    return 0;
-
 }
