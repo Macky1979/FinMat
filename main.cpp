@@ -41,7 +41,8 @@ int main()
     string date_str_begin = "19791230";
     string date_str_end = "20211107";
     string date_freq = "1D";
-    vector<myDate> * my_life = create_date_serie(date_str_begin, date_str_end, date_freq);
+    date_format = "yyyymmdd";
+    vector<myDate> * my_life = create_date_serie(date_str_begin, date_str_end, date_freq, date_format);
     cout << "I am alive " + to_string(my_life->size()) + " days!" << endl;
     cout << "Do you want to list all the days? (y/n)";
     string answer;
