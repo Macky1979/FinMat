@@ -1,60 +1,31 @@
 #include <string>
 #include <iostream>
-#include "lib_date.h"
+#include "lib_lininterp1d.h"
 
 using namespace std;
 
 int main()
 {
+    // pointer to vector holding the interpolated figures
+    vector<double> * Y = new vector<double>();
 
-    // introduction of the myDate object
-    string date_str = "30/12/1979";
-    string date_format = "dd/mm/yyyy";
-    myDate my_birth(date_str, date_format);
-    cout << "I was born " + to_string(my_birth.get_days_no()) + " days after 01/01/1601." << endl;
+    // x and y are supposed to be orderd in ascending order
+    vector<double> x = {0, 1, 2, 3, 4, 5}; 
+    vector<double> y = {0, 1, 3, 5, 6, 7};
+    vector<double> X = {-1, 1, 2, 8, 2.5, 1./3};
 
-    // overloaded operators
-    myDate today(20211107);
-    cout << today - my_birth << " days being alive!" << endl;
-    myDate some_day;
-    some_day = today;
-    cout << "Today is " + some_day.get_date_str() << endl;
+    // create interpolation object and interpolate
+    myLinInterp1d interp(x, y);
+    Y = interp.eval(X);
 
-    // copy construtor and function add()
-    myDate birthsday = my_birth;
-    birthsday.add("40Y");
-    cout << "I was born on " + my_birth.get_date_str() + "." << endl;
-    cout << "I was 40Y on " + birthsday.get_date_str() + "." << endl;
-    birthsday.add("22M");
-    cout << "Today I am " + to_string((birthsday - my_birth) / 365.) + " years old." << endl;
-
-    // pointer to myDate object
-    myDate * christmas = new myDate(20211224);
-    cout << "Next X-mas is on " + christmas->get_date_str() + "." << endl;
-    delete christmas;
-
-    // default constructor
-    myDate renesaince;
-    cout << "The lowest possible date is " + renesaince.get_date_str() + "." << endl;
-
-    // all days in my life; demonstration of create_date_series() function
-    string date_str_begin = "19791230";
-    string date_str_end = "20211107";
-    string date_freq = "1D";
-    date_format = "yyyymmdd";
-    vector<myDate> * my_life = create_date_serie(date_str_begin, date_str_end, date_freq, date_format);
-    cout << "I am alive " + to_string(my_life->size()) + " days!" << endl;
-    cout << "Do you want to list all the days? (y/n)";
-    string answer;
-    cin >> answer;
-    if ((answer.compare("y") == 0) || (answer.compare("Y") == 0))
+    // print out results
+    for (int i = 0; i < Y->size(); i++)
     {
-        for (int i = 0; i <= my_life->size(); i++)
-        {
-            cout << (*my_life)[i].get_date_str() << '\n';
-        }
+        cout << "Y[" + to_string(i) + "] = " + to_string((*Y)[i]) << std::endl;
     }
-    delete my_life;
+
+    // delete pointer
+    delete Y;
 
     // everything OK
     return 0;

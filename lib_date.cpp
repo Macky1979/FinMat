@@ -267,7 +267,7 @@ myDate::myDate(const string &_date_str, const string &_date_format)
     }
     else
     {
-        throw std::invalid_argument(_date_format + " is  notsupported date string format!" );
+        throw std::invalid_argument(_date_format + " is  notsupported date string format!");
     }
 
     // determine year, month, day and number of days since 01/01/1601
