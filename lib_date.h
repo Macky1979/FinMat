@@ -71,18 +71,19 @@ int main()
 // define date class
 class myDate
 {
-    // private variables
-    std::string date_str;
-    int date_int;
-    int year;
-    int month;
-    int day;
-    long days_no;
-    const int init_year = 1601;
+    private:
+        // variables
+        std::string date_str;
+        int date_int;
+        int year;
+        int month;
+        int day;
+        long days_no;
+        const int init_year = 1601;
 
-    // private functions
-    void set_year_month_day();
-    void set_days_no();
+        // functions
+        void set_year_month_day();
+        void set_days_no();
 
     public:
         // object constructors

@@ -228,7 +228,7 @@ void myDate::add(const string &date_freq)
     }
     else
     {
-        throw std::invalid_argument(date_freq_type + " is  notsupported date date frequency type!" );
+        throw std::invalid_argument(date_freq_type + " is  notsupported date date frequency type!");
     }
 }
 

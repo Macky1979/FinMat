@@ -10,7 +10,11 @@
 				"-g",
 				"*.cpp",
 				"-o",
-				"${fileDirname}/${fileBasenameNoExtension}"
+				"${fileDirname}/${fileBasenameNoExtension}",
+				"-I",
+				"/home/macky/Documents/Programming/C++/sqlite_3.36.0/",
+				"-l",
+				"sqlite3"
 			],
 			"options": {
 				"cwd": "${fileDirname}"

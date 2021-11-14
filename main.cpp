@@ -1,31 +1,57 @@
+
 #include <string>
 #include <iostream>
-#include "lib_lininterp1d.h"
+#include <sqlite3.h>
+#include "lib_sqlite.h"
 
 using namespace std;
 
 int main()
 {
-    // pointer to vector holding the interpolated figures
-    vector<double> * Y = new vector<double>();
+    // variables
+    const char * db_file_nm = "database.db";
+    string sql = "SELECT * FROM cities;";
+    sqlQueryResult * rslt = new sqlQueryResult;
 
-    // x and y are supposed to be orderd in ascending order
-    vector<double> x = {0, 1, 2, 3, 4, 5}; 
-    vector<double> y = {0, 1, 3, 5, 6, 7};
-    vector<double> X = {-1, 1, 2, 8, 2.5, 1./3};
+    // create SQLite object and open connection to SQLite database file in read-write mode
+    mySQLite db(db_file_nm, false);
 
-    // create interpolation object and interpolate
-    myLinInterp1d interp(x, y);
-    Y = interp.eval(X);
+    // create table if it does not exists
+    db.exec("CREATE TABLE IF NOT EXISTS cities (city VARCHAR(20), country VARCHAR(20));");
 
-    // print out results
-    for (int i = 0; i < Y->size(); i++)
+    // delete table
+    db.exec("DELETE FROM cities;");   
+
+    // insert data into table
+    db.exec("INSERT INTO cities (city, country) VALUES ('Prague', 'Czech Republic');");
+    
+    // vacuum SQLite database file to avoid its excessive growth
+    db.vacuum();
+
+    // close connection to SQLite database file
+    db.close();
+
+    // open connection to SQLite database file in read-only mode
+    db.open(db_file_nm, true);
+
+    // query database
+    rslt = db.query(sql);
+
+    // print result of SQL query
+    for (int i = 0; i < (*rslt).values.size(); i++)
     {
-        cout << "Y[" + to_string(i) + "] = " + to_string((*Y)[i]) << std::endl;
+        for (int j = 0; j < (*rslt).values[0].size(); j++)
+        {
+            cout << (*rslt).values[i][j] << " ";
+        }
+        cout << '\n';
     }
 
+    // close connection to SQLite database file
+    db.close();
+
     // delete pointer
-    delete Y;
+    delete rslt;
 
     // everything OK
     return 0;

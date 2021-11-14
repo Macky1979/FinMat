@@ -7,7 +7,7 @@
 /*
 #include <string>
 #include <iostream>
-#include "lib_lininterp.h"
+#include "lib_lininterp1d.h"
 
 using namespace std;
 
@@ -22,13 +22,13 @@ int main()
     vector<double> X = {-1, 1, 2, 8, 2.5, 1./3};
 
     // create interpolation object and interpolate
-    myLinInterp interp(x, y);
+    myLinInterp1d interp(x, y);
     Y = interp.eval(X);
 
     // print out results
     for (int i = 0; i < Y->size(); i++)
     {
-        cout << "Y[" + to_string(i) + "] = " + to_string((*Y)[i]) << '\n';
+        cout << "Y[" + to_string(i) + "] = " + to_string((*Y)[i]) << std::endl;
     }
 
     // delete pointer
@@ -42,11 +42,12 @@ int main()
 // define object that handles linear interpolations
 class myLinInterp1d
 {
-    // private variables
-    std::vector<double> x;
-    std::vector<double> y;
-    std::vector<double> X;
-    std::vector<double> Y;
+    private:
+        // variables
+        std::vector<double> x;
+        std::vector<double> y;
+        std::vector<double> X;
+        std::vector<double> Y;
 
     public:
         // object constructors
