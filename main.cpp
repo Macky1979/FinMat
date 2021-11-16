@@ -11,7 +11,7 @@ int main()
     // variables
     const char * db_file_nm = "database.db";
     string sql = "SELECT * FROM cities;";
-    sqlQueryResult * rslt = new sqlQueryResult;
+    dataFrame * rslt = new dataFrame;
 
     // create SQLite object and open connection to SQLite database file in read-write mode
     mySQLite db(db_file_nm, false);
