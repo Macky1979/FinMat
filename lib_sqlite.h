@@ -4,21 +4,13 @@
 #include <string>
 #include <vector>
 #include <sqlite3.h>
+#include "lib_dataframe.h"
 
 /*
-#include <string>
-#include <iostream>
-#include <sqlite3.h>
-#include "lib_sqlite.h"
-
-using namespace std;
-
-int main()
-{
     // variables
     const char * db_file_nm = "database.db";
     string sql = "SELECT * FROM cities;";
-    dataFrame * rslt = new dataFrame;
+    myDataFrame * rslt = new myDataFrame();
 
     // create SQLite object and open connection to SQLite database file in read-write mode
     mySQLite db(db_file_nm, false);
@@ -45,11 +37,11 @@ int main()
     rslt = db.query(sql);
 
     // print result of SQL query
-    for (int i = 0; i < (*rslt).values.size(); i++)
+    for (int i = 0; i < (*rslt).data.values.size(); i++)
     {
-        for (int j = 0; j < (*rslt).values[0].size(); j++)
+        for (int j = 0; j < (*rslt).data.values[0].size(); j++)
         {
-            cout << (*rslt).values[i][j] << " ";
+            cout << (*rslt).data.values[i][j] << " ";
         }
         cout << '\n';
     }
@@ -62,16 +54,7 @@ int main()
 
     // everything OK
     return 0;
-}
 */
-
-// user defined datatype to hold result of SQL query
-struct dataFrame
-{
-	std::vector<std::string> col_nms;
-	std::vector<std::string> dtypes;
-	std::vector<std::vector<std::string>> values; 
-};
 
 // define object that handles SQLite database
 class mySQLite
@@ -81,8 +64,11 @@ class mySQLite
         sqlite3 *db;
 
     public:
+        // how many seconds to wait for SQLite database file being available
+        int wait_max_seconds;
+
         // object constructors
-        mySQLite(const char *db_file_nm, const bool read_only);
+        mySQLite(const char *db_file_nm, const bool read_only, int wait_max_seconds);
 
         // object destructor
         ~mySQLite(){};
@@ -92,8 +78,7 @@ class mySQLite
         void close();
         void vacuum();
         void exec(const std::string &sql);
-        dataFrame * query(const std::string &sql);
-        void upload_tbl(const dataFrame &tbl, const std::string &tbl_nm);
-        dataFrame * download_tbl(const std::string &tbl_nm);
-
+        myDataFrame * query(const std::string &sql);
+        myDataFrame * download_tbl(const std::string &tbl_nm);
+        void upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, const bool delete_old_data);
 };

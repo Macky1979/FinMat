@@ -1,20 +1,39 @@
-
 #include <string>
 #include <iostream>
+#include <vector>
 #include <sqlite3.h>
+#include "lib_dataframe.h"
 #include "lib_sqlite.h"
+#include "lib_aux.h"
 
 using namespace std;
+
+void print_df(myDataFrame * df)
+{
+    // print result of SQL query
+    for (int i = 0; i < (*df).tbl.values.size(); i++)
+    {
+        for (int j = 0; j < (*df).tbl.values[0].size(); j++)
+        {
+            cout << (*df).tbl.values[i][j] << " ";
+        }
+        cout << '\n';
+    }
+}
 
 int main()
 {
     // variables
     const char * db_file_nm = "database.db";
     string sql = "SELECT * FROM cities;";
-    dataFrame * rslt = new dataFrame;
+    myDataFrame * rslt = new myDataFrame();
+    bool read_only;
+    int wait_max_seconds = 10;
+    bool delete_old_data = false;
 
     // create SQLite object and open connection to SQLite database file in read-write mode
-    mySQLite db(db_file_nm, false);
+    read_only = false;
+    mySQLite db(db_file_nm, read_only, wait_max_seconds);
 
     // create table if it does not exists
     db.exec("CREATE TABLE IF NOT EXISTS cities (city VARCHAR(20), country VARCHAR(20));");
@@ -32,20 +51,35 @@ int main()
     db.close();
 
     // open connection to SQLite database file in read-only mode
-    db.open(db_file_nm, true);
+    read_only = true;
+    db.open(db_file_nm, read_only);
 
     // query database
     rslt = db.query(sql);
 
-    // print result of SQL query
-    for (int i = 0; i < (*rslt).values.size(); i++)
-    {
-        for (int j = 0; j < (*rslt).values[0].size(); j++)
-        {
-            cout << (*rslt).values[i][j] << " ";
-        }
-        cout << '\n';
-    }
+    // print dataframe
+    print_df(rslt);
+
+    rslt = db.download_tbl("cities");
+
+    // print dataframe
+    print_df(rslt);
+
+    // close connection to SQLite database file
+    db.close();
+
+    // open connection to SQLite database file in read-write mode
+    read_only = false;
+    db.open(db_file_nm, read_only);
+
+    // re-insert dataframe into the table
+    db.upload_tbl(*rslt, "cities", delete_old_data);
+
+    // print dataframe
+    rslt = db.query("SELECT * FROM cities;");
+
+    // print dataframe
+    print_df(rslt);
 
     // close connection to SQLite database file
     db.close();

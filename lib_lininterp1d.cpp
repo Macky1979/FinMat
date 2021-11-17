@@ -77,4 +77,3 @@ vector<double> * myLinInterp1d::eval(const vector<double> &_X)
     return Y;
 
 }
-
