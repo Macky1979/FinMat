@@ -110,6 +110,8 @@ class myDate
         int get_date_int() const {return date_int;}
         std::string get_date_str() const {return date_str;}
         void add(const std::string &date_freq);
+        bool is_last_day_in_month() const;
+        bool is_leap_year() const;
 };
 
 // external functions

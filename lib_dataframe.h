@@ -5,6 +5,10 @@
 #include <vector>
 
 /*
+#include <string>
+#include <iostream>
+#include <vector>
+#include <sqlite3.h>
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 #include "lib_aux.h"

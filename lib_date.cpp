@@ -232,6 +232,55 @@ void myDate::add(const string &date_freq)
     }
 }
 
+bool myDate::is_last_day_in_month() const
+{
+    // copy myDate object into an auxiliary variable
+    myDate date_aux = myDate(this->get_date_int());
+
+    // store the current month into an auxiliary variable
+    int month_aux = date_aux.get_month();
+
+    // add one date to the date
+    date_aux.add("1D");
+
+    // check if the month has changed
+    if (date_aux.get_month() > month_aux){
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool myDate::is_leap_year() const
+{
+    // variables
+    bool is_leap = false;
+    int year = this->get_year();
+
+    // the most common defintion of a leap year is divisibility by 4
+    if (year % 4 == 0)
+    {
+        is_leap = true;
+    }
+
+    // however we skip leap year every 100 years
+    if (year % 100 == 0)
+    {
+        is_leap = false;
+    }
+
+    // unless the year is not divisible by 400
+    if (year % 400 == 0)
+    {
+        is_leap = false;
+    }
+
+    // return information if the year is leap year or not
+    return is_leap;
+}
+
 /*
  * OBJECT CONSTRUCTORS
  */

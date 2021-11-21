@@ -5,54 +5,45 @@
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 #include "lib_aux.h"
+#include "fin_date.h"
 
 using namespace std;
 
 int main()
 {
-    // variables
-    const char * db_file_nm = "database.db";
-    string file_nm = "cities.csv";
-    string file_nm2 = "cities2.csv";
-    myDataFrame * rslt = new myDataFrame();
-    myDataFrame * rslt2 = new myDataFrame();
-    bool read_only = false;
-    int wait_max_seconds = 10;
-    bool delete_old_data = true;
-    string sep = ";";
-    bool quotes = true;
+    // day count method
+    string dcm;
 
-    // create SQLite object and open connection to SQLite database file in read-write mode
-    mySQLite db(db_file_nm, read_only, wait_max_seconds);
+    // year fraction variable
+    float year_fraction;
 
-    // create table if it does not exists
-    db.exec("CREATE TABLE IF NOT EXISTS cities (city VARCHAR(20), country VARCHAR(20));");
+    // create date objects
+    myDate date1 = myDate("30/12/1979", "dd/mm/yyyy");
+    myDate date2 = myDate("21/11/2021", "dd/mm/yyyy");
 
-    // delete table
-    db.exec("DELETE FROM cities;");   
+    // 30/360
+    dcm = "30_360";
+    year_fraction = day_count_method(date1, date2, dcm);
+    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
+        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
 
-    // insert data into table
-    db.exec("INSERT INTO cities (city, country) VALUES ('Prague', 'Czech Republic');");
-    
-    // vacuum SQLite database file to avoid its excessive growth
-    db.vacuum();
+    // actual/360
+    dcm = "ACT_360";
+    year_fraction = day_count_method(date1, date2, dcm);
+    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
+        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
 
-    // download table
-    rslt = db.download_tbl("cities");
+    // actual/365
+    dcm = "ACT_365";
+    year_fraction = day_count_method(date1, date2, dcm);
+    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
+        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
 
-    // close connection to SQLite database file
-    db.close();
-
-    // write dataframe into a .csv file
-    rslt->write(file_nm, sep, quotes);
-
-    // create dataframe from a .csv file
-    rslt2->read(file_nm, sep, quotes);
-    rslt2->write(file_nm2, sep, quotes);
-
-    // delete pointers
-    delete rslt;
-    delete rslt2;
+    // actual/actual
+    dcm = "ACT_ACT";
+    year_fraction = day_count_method(date1, date2, dcm);
+    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
+        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
 
     // everything OK
     return 0;
