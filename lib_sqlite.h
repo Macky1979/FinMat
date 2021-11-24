@@ -101,6 +101,9 @@ int main()
 }
 */
 
+// read SQL query from a text file
+std::string read_sql(std::string sql_file_nm, int tag);
+
 // define object that handles SQLite database
 class mySQLite
 {

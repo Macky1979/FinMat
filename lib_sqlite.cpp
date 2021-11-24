@@ -5,6 +5,7 @@
 #include <sqlite3.h>
 #include <chrono>
 #include <thread>
+#include <fstream>
 #include "lib_aux.h"
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
@@ -398,4 +399,61 @@ void mySQLite::upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, con
 
         // now we have INSERT statement ready, insert all the rows into SQLite database file
         this->exec(sql);
+}
+
+/*
+ * STANDALONE FUNCTIONS
+ */
+
+string read_sql(string sql_file_nm, int tag_no)
+{
+    // declare file stream
+    ifstream f;
+
+    // varible holding line
+    string line;
+
+    // string holding tag
+    string tag_aux = "###!";
+    string tag = tag_aux + to_string(tag_no);
+
+    // boolean variable indicating begining of SQL query we are looking for
+    bool sql_query_found = false;
+
+    // string variable that hold SQL query we want to extract
+    string sql = "";
+
+    f.open(sql_file_nm, ios::out);
+    if (f.is_open())
+    {
+        while(getline(f, line))
+        {
+            // check that we have not reached begining of another SQL query
+            if (sql_query_found && (line.substr(0, 3).compare(tag_aux) == 0))
+            {
+                // we have reached another SQL query, so return what you have read so far
+                return sql;
+            }
+
+            // add the line to SQL query if eligible
+            if (sql_query_found)
+            {
+                sql += line;
+            }
+
+            // check if hit the required SQL query
+            if (line.substr(0,tag.length()).compare(tag) == 0)
+                sql_query_found = true;   
+        }
+
+        // close file with SQL queries
+        f.close();
+
+        // we have reached end of the file, so return what you have read so far
+        return sql;
+    }
+    else
+    {
+        throw std::runtime_error("Unable to open file " + sql_file_nm + "!");
+    }
 }

@@ -5,45 +5,92 @@
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 #include "lib_aux.h"
-#include "fin_date.h"
 
 using namespace std;
 
+void print_df(myDataFrame * df)
+{
+    // print result of SQL query
+    for (int i = 0; i < (*df).tbl.values.size(); i++)
+    {
+        for (int j = 0; j < (*df).tbl.values[0].size(); j++)
+        {
+            cout << (*df).tbl.values[i][j] << " ";
+        }
+        cout << '\n';
+    }
+}
+
 int main()
 {
-    // day count method
-    string dcm;
+    // variables
+    const char * db_file_nm = "database.db";
+    string sql_file_nm = "SQL_queries.sql";
+    string sql;
+    myDataFrame * rslt = new myDataFrame();
+    bool read_only;
+    int wait_max_seconds = 10;
+    bool delete_old_data = false;
 
-    // year fraction variable
-    float year_fraction;
+    // create SQLite object and open connection to SQLite database file in read-write mode
+    read_only = false;
+    mySQLite db(db_file_nm, read_only, wait_max_seconds);
 
-    // create date objects
-    myDate date1 = myDate("30/12/1979", "dd/mm/yyyy");
-    myDate date2 = myDate("21/11/2021", "dd/mm/yyyy");
+    // create table if it does not exists
+    sql = read_sql(sql_file_nm, 1);
+    db.exec(sql);
 
-    // 30/360
-    dcm = "30_360";
-    year_fraction = day_count_method(date1, date2, dcm);
-    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
-        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
+    // delete table
+    sql = read_sql(sql_file_nm, 2);
+    db.exec("DELETE FROM cities;");   
 
-    // actual/360
-    dcm = "ACT_360";
-    year_fraction = day_count_method(date1, date2, dcm);
-    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
-        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
+    // insert data into table
+    sql = read_sql(sql_file_nm, 3);
+    db.exec("INSERT INTO cities (city, country) VALUES ('Prague', 'Czech Republic');");
+    
+    // vacuum SQLite database file to avoid its excessive growth
+    db.vacuum();
 
-    // actual/365
-    dcm = "ACT_365";
-    year_fraction = day_count_method(date1, date2, dcm);
-    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
-        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
+    // close connection to SQLite database file
+    db.close();
 
-    // actual/actual
-    dcm = "ACT_ACT";
-    year_fraction = day_count_method(date1, date2, dcm);
-    cout << "Year fraction between dates " + date1.get_date_str() + " and " + date2.get_date_str() +\
-        " assuming " + dcm + " is " + to_string(year_fraction) + " years" << endl;
+    // open connection to SQLite database file in read-only mode
+    read_only = true;
+    db.open(db_file_nm, read_only);
+
+    // query database
+    rslt = db.query(sql);
+
+    // print dataframe
+    print_df(rslt);
+
+    rslt = db.download_tbl("cities");
+
+    // print dataframe
+    print_df(rslt);
+
+    // close connection to SQLite database file
+    db.close();
+
+    // open connection to SQLite database file in read-write mode
+    read_only = false;
+    db.open(db_file_nm, read_only);
+
+    // re-insert dataframe into the table
+    db.upload_tbl(*rslt, "cities", delete_old_data);
+
+    // print dataframe
+    sql = read_sql(sql_file_nm, 4);
+    rslt = db.query(sql);
+
+    // print dataframe
+    print_df(rslt);
+
+    // close connection to SQLite database file
+    db.close();
+
+    // delete pointer
+    delete rslt;
 
     // everything OK
     return 0;
