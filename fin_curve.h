@@ -1,3 +1,11 @@
+# pragma once
+
+#include <string>
+#include <map>
+#include <tuple>
+#include "lib_sqlite.h"
+
+/*
 #include <string>
 #include <iostream>
 #include <vector>
@@ -122,3 +130,43 @@ int main()
     // everything OK
     return 0;
 }
+*/
+
+// tenor structure
+struct tenor_def
+{
+    float rate;
+    float year_frac;
+    float year_frac_aux1;
+    float year_frac_aux2;
+    float df;
+    float zero_rate;
+};
+
+// define curve class
+class myCurve
+{
+    public:
+        // object variables
+        std::string crv_nm;
+        std::string ccy_nm;
+        std::string dcm;
+        std::string crv_type;
+        std::string underlying1;
+        std::string underlying2;
+    
+        std::map<std::tuple<int, int>, tenor_def> tenor; // map based on scenario number and tenor
+    
+        // object constructors
+        myCurve(const mySQLite &db, std::string sql_file_nm, std::string crv_nm);
+
+        // object destructors
+        ~myCurve(){};
+
+        // object function declarations
+        std::vector<float> * get_zero_rate(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_year_frac(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_df(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<float> &nominals, const int &step);
+};

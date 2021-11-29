@@ -34,7 +34,8 @@ int main()
 {
     // variables
     const char * db_file_nm = "database.db";
-    string sql = "SELECT * FROM cities;";
+    string sql_file_nm = "SQL_queries.sql";
+    string sql;
     myDataFrame * rslt = new myDataFrame();
     bool read_only;
     int wait_max_seconds = 10;
@@ -45,12 +46,15 @@ int main()
     mySQLite db(db_file_nm, read_only, wait_max_seconds);
 
     // create table if it does not exists
-    db.exec("CREATE TABLE IF NOT EXISTS cities (city VARCHAR(20), country VARCHAR(20));");
+    sql = read_sql(sql_file_nm, 1);
+    db.exec(sql);
 
     // delete table
+    sql = read_sql(sql_file_nm, 2);
     db.exec("DELETE FROM cities;");   
 
     // insert data into table
+    sql = read_sql(sql_file_nm, 3);
     db.exec("INSERT INTO cities (city, country) VALUES ('Prague', 'Czech Republic');");
     
     // vacuum SQLite database file to avoid its excessive growth
@@ -85,7 +89,8 @@ int main()
     db.upload_tbl(*rslt, "cities", delete_old_data);
 
     // print dataframe
-    rslt = db.query("SELECT * FROM cities;");
+    sql = read_sql(sql_file_nm, 4);
+    rslt = db.query(sql);
 
     // print dataframe
     print_df(rslt);
@@ -96,6 +101,13 @@ int main()
     // delete pointer
     delete rslt;
 
+    // demonstrate function replace_in_sql()
+    sql = "SELECT ##col_nm## FROM cities;";
+    string replace_what = "##col_nm##";
+    string replace_with = "cities";
+    sql = replace_in_sql(sql, replace_what, replace_with);
+    cout << sql << endl;
+
     // everything OK
     return 0;
 }
@@ -103,6 +115,9 @@ int main()
 
 // read SQL query from a text file
 std::string read_sql(std::string sql_file_nm, int tag);
+
+// make substitutions in SQL query
+std::string replace_in_sql(std::string sql, std::string replace_what, std::string replace_with);
 
 // define object that handles SQLite database
 class mySQLite
@@ -123,10 +138,10 @@ class mySQLite
 
         // object function declarations
         void open(const char *db_file_nm, const bool read_only);
-        void close();
-        void vacuum();
-        void exec(const std::string &sql);
-        myDataFrame * query(const std::string &sql);
+        void close() const;
+        void vacuum() const;
+        void exec(const std::string &sql) const;
+        myDataFrame * query(const std::string &sql) const;
         myDataFrame * download_tbl(const std::string &tbl_nm);
         void upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, const bool delete_old_data);
 };

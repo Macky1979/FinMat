@@ -104,7 +104,7 @@ void myDataFrame::write(const string &file_nm, const string &sep, const bool &qu
     }
     else
     {
-        throw std::runtime_error("Unable to open file " + file_nm + "!");
+        throw runtime_error((string)__func__ + ": Unable to open file " + file_nm + "!");
     }
 }
 
@@ -186,7 +186,7 @@ void myDataFrame::read(const string &file_nm, const string &sep, const bool &quo
     }
     else
     {
-        throw std::runtime_error("Unable to open file " + file_nm + "!");
+        throw runtime_error((string)__func__ + ": Unable to open file " + file_nm + "!");
     }
     
 }

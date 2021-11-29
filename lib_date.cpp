@@ -37,7 +37,7 @@ int days_in_month(const int &year, const int &month)
                 return 28;
         // incorrect month
         default:
-            throw std::invalid_argument(to_string(month) + "  is not supported month!" );
+            throw invalid_argument((string)__func__ + ": " + to_string(month) + "  is not supported month!" );
     }
 }
 
@@ -228,7 +228,7 @@ void myDate::add(const string &date_freq)
     }
     else
     {
-        throw std::invalid_argument(date_freq_type + " is  notsupported date date frequency type!");
+        throw invalid_argument((string)__func__ + ": " + date_freq_type + " is  notsupported date date frequency type!");
     }
 }
 
@@ -316,7 +316,7 @@ myDate::myDate(const string &_date_str, const string &_date_format)
     }
     else
     {
-        throw std::invalid_argument(_date_format + " is  notsupported date string format!");
+        throw invalid_argument((string)__func__ + ": " + _date_format + " is not a supported date string format!");
     }
 
     // determine year, month, day and number of days since 01/01/1601

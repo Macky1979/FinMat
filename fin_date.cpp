@@ -1,4 +1,3 @@
-
 #include <string>
 #include <algorithm>
 #include "fin_date.h"
@@ -31,7 +30,7 @@ float day_count_method(const myDate &date1, const myDate &date2, const string &d
     // check that date1 preceeds date2
     if (date1.get_days_no() >= date2.get_days_no())
     {
-        throw std::invalid_argument("Parameter date1 must preceed date2!");
+        throw invalid_argument((string)__func__ + ": Parameter date1 must preceed date2!");
     }
 
     // extract day, month and year from date 1
@@ -180,7 +179,7 @@ float day_count_method(const myDate &date1, const myDate &date2, const string &d
     // supported day count method
     else
     {
-        throw std::invalid_argument(dcm + " is not a supported day count method!");
+        throw invalid_argument((string)__func__ + ": " + dcm + " is not a supported day count method!");
     }
 
     // return calcualted year fraction
