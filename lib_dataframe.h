@@ -85,7 +85,7 @@ class myDataFrame
 
 		// object constructors
 		myDataFrame(){};
-		myDataFrame(dataFrame _tbl){tbl = _tbl;};
+		myDataFrame(dataFrame tbl){this->tbl = tbl;};
 
 		// object destructor
 		~myDataFrame(){};

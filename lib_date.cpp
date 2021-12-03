@@ -295,28 +295,28 @@ myDate::myDate()
     days_no = 0;
 };
 
-myDate::myDate(const string &_date_str, const string &_date_format)
+myDate::myDate(const string &date_str, const string &date_format)
 {
     // convert date string into yyyymmdd string format
-    if (_date_format.compare("dd/mm/yyyy") == 0)
+    if (date_format.compare("dd/mm/yyyy") == 0)
     {
-        date_str = _date_str.substr(6,4) + _date_str.substr(3,2) + _date_str.substr(0, 2);
+        this->date_str = date_str.substr(6,4) + date_str.substr(3,2) + date_str.substr(0, 2);
     }
-    else if (_date_format.compare("yyyy/mm/dd") == 0)
+    else if (date_format.compare("yyyy/mm/dd") == 0)
     {
-        date_str = _date_str.substr(0,4) + _date_str.substr(5,2) + _date_str.substr(8, 2);
+        this->date_str = date_str.substr(0,4) + date_str.substr(5,2) + date_str.substr(8, 2);
     }
-    else if (_date_format.compare("ddmmyyyy") == 0)
+    else if (date_format.compare("ddmmyyyy") == 0)
     {
-        date_str = _date_str.substr(4, 4) + _date_str.substr(2, 2) + _date_str.substr(0, 2);
+        this->date_str = date_str.substr(4, 4) + date_str.substr(2, 2) + date_str.substr(0, 2);
     }
-    else if (_date_format.compare("yyyymmdd") == 0)
+    else if (date_format.compare("yyyymmdd") == 0)
     {
-        date_str = _date_str;
+        this->date_str = date_str;
     }
     else
     {
-        throw invalid_argument((string)__func__ + ": " + _date_format + " is not a supported date string format!");
+        throw invalid_argument((string)__func__ + ": " + date_format + " is not a supported date string format!");
     }
 
     // determine year, month, day and number of days since 01/01/1601
@@ -324,26 +324,25 @@ myDate::myDate(const string &_date_str, const string &_date_format)
 
 }
 
-myDate::myDate(const int &_date_int)
+myDate::myDate(const int &date_int)
 {
     // store date integer; we assume yyyymmdd format
-    date_int = _date_int;
+    this->date_int = date_int;
 
     // store date as string in yyyymmdd
-    date_str = to_string(_date_int);
+    this->date_str = to_string(date_int);
 
     // determine year, month, day and number of days since 01/01/1601
     this->recalc();
-
 }
 
 /*
  * COPY CONSTRUCTOR
  */
 
-myDate::myDate (const myDate &_date)
+myDate::myDate (const myDate &date)
 {
-    date_str = _date.get_date_str();
+    this->date_str = date.get_date_str();
     this->recalc();
 };
 
@@ -356,9 +355,9 @@ long myDate::operator- (const myDate &date2)
     return days_no - date2.get_days_no();
 }
 
-myDate& myDate::operator= (const myDate &_date)
+myDate& myDate::operator= (const myDate &date)
 {
-    date_str = _date.get_date_str();
+    this->date_str = date.get_date_str();
     this->recalc();
     return *this;
 };

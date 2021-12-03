@@ -88,11 +88,11 @@ class myDate
     public:
         // object constructors
         myDate();
-        myDate(const std::string &, const std::string &);
-        myDate(const int &);
+        myDate(const std::string &date_str, const std::string &date_format);
+        myDate(const int &date_int);
 
         // copy constructor
-        myDate (const myDate &_date);
+        myDate (const myDate &date);
 
         // object destructor
         ~myDate(){};

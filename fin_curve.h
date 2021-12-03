@@ -4,6 +4,7 @@
 #include <map>
 #include <tuple>
 #include "lib_sqlite.h"
+#include "lib_date.h"
 
 /*
 #include <string>
@@ -13,6 +14,7 @@
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 #include "lib_aux.h"
+#include "lib_date.h"
 #include "fin_curve.h"
 
 using namespace std;
@@ -135,6 +137,8 @@ int main()
 // tenor structure
 struct tenor_def
 {
+    myDate tenor_date;
+    int tenor;
     float rate;
     float year_frac;
     float year_frac_aux1;
@@ -148,6 +152,7 @@ class myCurve
 {
     public:
         // object variables
+        myDate calc_date;
         std::string crv_nm;
         std::string ccy_nm;
         std::string dcm;
@@ -155,18 +160,19 @@ class myCurve
         std::string underlying1;
         std::string underlying2;
     
-        std::map<std::tuple<int, int>, tenor_def> tenor; // map based on scenario number and tenor
+        std::map<std::tuple<int, std::string>, tenor_def> tenor; // map based on scenario number and tenor date string in yyyymmdd format
     
         // object constructors
-        myCurve(const mySQLite &db, std::string sql_file_nm, std::string crv_nm);
+        myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::string &crv_nm, const myDate &calc_date);
 
         // object destructors
         ~myCurve(){};
 
         // object function declarations
-        std::vector<float> * get_zero_rate(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_year_frac(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_df(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<float> &nominals, const int &step);
+        std::vector<float> * get_year_frac(const std::vector<std::tuple<int, std::string>> &tenor);
+        std::vector<myDate> * get_tenor_dates(const std::vector<std::tuple<int, std::string>> &tenor);
+        std::vector<float> * get_zero_rate(const std::vector<std::tuple<int, std::string>> &tenor);
+        std::vector<float> * get_df(const std::vector<std::tuple<int, std::string>> &tenor);
+        std::vector<float> * get_fwd_rate(const std::vector<std::tuple<int, std::string>> &tenor, const std::string &dcm);
+        std::vector<float> * get_par_rate(const std::vector<std::tuple<int, std::string>> &tenor, const std::vector<float> &nominals, const int &step, const std::string &dcm);
 };
