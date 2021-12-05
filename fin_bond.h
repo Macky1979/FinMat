@@ -6,10 +6,40 @@
 #include "lib_date.h"
 #include "fin_curve.h"
 
+// coupon data type
+struct coupon
+{
+    bool appl = false;
+    bool fixed = false;
+    std::string date1;
+    std::string date2;
+    float year_frac;
+    float rate;
+};
+
+// event data type
+struct event
+{
+    int date;
+    float nominal;
+    bool is_cpn_payment = false;
+    bool is_repricing = false;
+    bool is_amort = false;
+    bool is_cpn_fix = false;
+    float cpn;
+    std::vector<myDate> repricing_dates;    
+    float repricing_year_frac;
+    std::vector<myDate> cpn_dates;
+    float cpn_year_frac;
+    float cpn_payment;
+    float amort_payment;
+    float cf;
+};
+
 // bond data
 struct bnd_info
 {
-    std::string entity;
+    std::string ent_nm;
 	std::string parent_id;
 	std::string contract_id;
 	std::string ptf;
@@ -23,19 +53,15 @@ struct bnd_info
 	std::string ccy_nm;
 	float nominal;
 	myDate deal_date;
-    float deal_time;
 	myDate maturity_date;
-    float maturity_time;
-	float acc_int;
+	bool is_acc_int;
+    float acc_int;
 	float cpn_rate;
 	myDate first_cpn_date;
-    float first_cpn_time;
 	std::string cpn_freq;
-	myDate first_fixing_date;
-    float first_fixing_time;
+	myDate first_fix_date;
 	std::string fix_freq;
 	myDate first_amort_date;
-    float first_amort_time;
 	std::string amort_freq;
 	double amort;
 	double rate_mult;
@@ -43,6 +69,8 @@ struct bnd_info
 	std::string curve_disc;
 	std::string curve_fwd;
     float npv;
+    std::string wrn_msg = "";
+    std::vector<event> events;
 };
 
 /*
@@ -57,16 +85,13 @@ class myBond
 
     public:
         // object constructors
-        myBond(const bnd_info &_info)
-        {
-            info = _info;
-        }
+        myBond(const mySQLite &db, const std::string &sql);
 
         // object destructors
         ~myBond(){};
 
         // object function declarations
-        void myBond::check();
-        void myBond::calc_times(const myDate &calc_date);
-        void myBond::calc_npv(const int &scn_no, std::vector<myCurve>);
+        //void myBond::check();
+        //void myBond::init(const myDate &calc_date);
+        //void myBond::calc_npv(const int &scn_no, std::vector<myCurve>, std::vector<myFx>);
 };

@@ -1,0 +1,4 @@
+ccy_nm,scn_no,rate
+CHAR,INT,FLOAT
+EUR,0,1
+CZK,0,0.0392156862745098

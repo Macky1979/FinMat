@@ -14,16 +14,17 @@ using namespace std;
  * OBJECT CONSTRUCTORS
  */
 
+// object containing information on a single curve
 myCurve::myCurve(const mySQLite &db, const string &sql_file_nm, const string &crv_nm, const myDate &calc_date)
 {
     // dataframe to hold result of SQL query
     myDataFrame * rslt = new myDataFrame();
 
-    // variable to holds SQL query
+    // variable to hold SQL query
     string sql;
 
     // load curve definition
-    sql = read_sql(sql_file_nm, 5);
+    sql = read_sql(sql_file_nm, 6);
     sql = replace_in_sql(sql, "##crv_nm##", "'" + crv_nm + "'");
     rslt = db.query(sql);
 
@@ -40,8 +41,8 @@ myCurve::myCurve(const mySQLite &db, const string &sql_file_nm, const string &cr
     if (this->crv_type.compare("base") == 0)
     {
         // retrieve data
-        sql = read_sql(sql_file_nm, 6);
-        sql = replace_in_sql(sql, "##crv_nm##", "'" + this->underlying1 + "'");
+        sql = read_sql(sql_file_nm, 7);
+        sql = replace_in_sql(sql, "##crv_nm##", "'" + this->crv_nm + "'");
         rslt = db.query(sql);
     
     }
@@ -49,7 +50,7 @@ myCurve::myCurve(const mySQLite &db, const string &sql_file_nm, const string &cr
     else if (this->crv_type.compare("compound") == 0)
     {
         // retrieve data
-        sql = read_sql(sql_file_nm, 7);
+        sql = read_sql(sql_file_nm, 8);
         sql = replace_in_sql(sql, "##crv_nm1##", "'" + this->underlying1 + "'");
         sql = replace_in_sql(sql, "##crv_nm2##", "'" + this->underlying2 + "'");
         rslt = db.query(sql);
@@ -77,11 +78,10 @@ myCurve::myCurve(const mySQLite &db, const string &sql_file_nm, const string &cr
     vector<float> _tenors;
     vector<float> _rates;
 
-
     for (int idx = 0; idx < rslt->tbl.values.size(); idx++)
     {
         // check that you have encountered a new scenario or you are at the end of file
-        if (((stoi(rslt->tbl.values[idx][0]) != scn_no) && (scn_no != -1)) || idx == rslt->tbl.values.size() - 1)
+        if (((stoi(rslt->tbl.values[idx][0]) != scn_no) && (scn_no != -1)) || (idx == rslt->tbl.values.size() - 1))
         {
             // interpolate rates
             myLinInterp interp(_tenors, _rates);
@@ -91,8 +91,8 @@ myCurve::myCurve(const mySQLite &db, const string &sql_file_nm, const string &cr
             // go scenario line by line
             for (int idx2 = 0; idx2 < rates->size(); idx2++)
             {
-                // create a tuple of scenario and tenor date string in yyyymmdd format
-                tuple<int, string> scn_tenor = {scn_no, (tenor_dates[idx2].get_date_str())};
+                // create a tuple of scenario and tenor date integer in yyyymmdd format
+                tuple<int, int> scn_tenor = {scn_no, tenor_dates[idx2].get_date_int()};
 
                 // create tenor and store rate into it
                 tenor_def tenor;
@@ -112,28 +112,57 @@ myCurve::myCurve(const mySQLite &db, const string &sql_file_nm, const string &cr
                 tenor.zero_rate = pow(tenor.df, -1. / tenor.year_frac) - 1;
 
                 // add tenor to curve object
-                this->tenor.insert(pair<tuple<int, string>, tenor_def>(scn_tenor, tenor));
+                this->tenor.insert(pair<tuple<int, int>, tenor_def>(scn_tenor, tenor));
 
                 // update scenario and clear variables
-                scn_no = stoi(rslt->tbl.values[idx][0]);
                 _tenors.clear();
                 _rates.clear();
             }
         }
         // load data
         {
+            scn_no = stoi(rslt->tbl.values[idx][0]);
             _tenors.push_back(stod(rslt->tbl.values[idx][1]));
             _rates.push_back(stod(rslt->tbl.values[idx][2]));
         }
     }
+
+    // delete unused pointers
+    delete rslt;
+}
+
+// object containing information on all curves
+myCurves::myCurves(const mySQLite &db, const std::string &sql_file_nm, const myDate &calc_date)
+{
+    // dataframe to hold result of SQL query
+    myDataFrame * rslt = new myDataFrame();
+
+    // variable to hold SQL query
+    string sql;
+
+    // load list of curves
+    sql = read_sql(sql_file_nm, 5);
+    rslt = db.query(sql);
+
+    // load curve by curve
+    string crv_nm;
+    for (int crv_idx = 0; crv_idx < rslt->tbl.values.size(); crv_idx++)
+    {
+        crv_nm = rslt->tbl.values[crv_idx][0];
+        myCurve crv = myCurve(db, sql_file_nm, crv_nm, calc_date);
+        this->crv.insert(pair<string, myCurve>(crv_nm, crv));
+    }
+
+    // delete unused pointers
+    delete rslt;
 }
 
 /*
  * OBJECT FUNCTIONS
  */
 
-// get year fraction based on vector of scenario numbers and tenor string dates in yyyymmdd format
-vector<float> * myCurve::get_year_frac(const vector<tuple<int, string>> &tenor)
+// get year fraction based on vector of scenario numbers and tenor integer dates in yyyymmdd format
+vector<float> * myCurve::get_year_frac(const vector<tuple<int, int>> &tenor)
 {
     // create vector to hold data
     vector<float> * year_fracs = new vector<float>();
@@ -148,8 +177,8 @@ vector<float> * myCurve::get_year_frac(const vector<tuple<int, string>> &tenor)
     return year_fracs;
 }
 
-// get tenor dates based on vector of scenario numbers and tenor string dates in yyyymmdd format
-vector<myDate> * myCurve::get_tenor_dates(const vector<tuple<int, string>> &tenor)
+// get tenor dates based on vector of scenario numbers and tenor integer dates in yyyymmdd format
+vector<myDate> * myCurve::get_tenor_dates(const vector<tuple<int, int>> &tenor)
 {
     // create vector to hold data
     vector<myDate> * tenor_dates = new vector<myDate>();
@@ -165,7 +194,7 @@ vector<myDate> * myCurve::get_tenor_dates(const vector<tuple<int, string>> &teno
 }
 
 // get zero rate based on vector of scenario numbers and tenor string dates in yyyymmdd format
-vector<float> * myCurve::get_zero_rate(const vector<tuple<int, string>> &tenor)
+vector<float> * myCurve::get_zero_rate(const vector<tuple<int, int>> &tenor)
 {
     // create vector to hold data
     vector<float> * zero_rates = new vector<float>();
@@ -181,7 +210,7 @@ vector<float> * myCurve::get_zero_rate(const vector<tuple<int, string>> &tenor)
 }
 
 // get discount factor based on vector of scenario numbers and tenors
-vector<float> * myCurve::get_df(const vector<tuple<int, string>> &tenor)
+vector<float> * myCurve::get_df(const vector<tuple<int, int>> &tenor)
 {
     // create vector to hold data
     vector<float> * dfs = new vector<float>();
@@ -197,7 +226,7 @@ vector<float> * myCurve::get_df(const vector<tuple<int, string>> &tenor)
 }
 
 // calculate forward rate based on vector scenarios numbers and tenors
-vector<float> * myCurve::get_fwd_rate(const vector<tuple<int, string>> &tenor, const string &dcm)
+vector<float> * myCurve::get_fwd_rate(const vector<tuple<int, int>> &tenor, const string &dcm)
 {
     // create vectors to hold data
     vector<float> * dfs = new vector<float>();
@@ -229,7 +258,7 @@ vector<float> * myCurve::get_fwd_rate(const vector<tuple<int, string>> &tenor, c
 }
 
 // calculate par rate based on vector scenarios numbers, tenors and nominals
-std::vector<float> * myCurve::get_par_rate(const vector<tuple<int, string>> &tenor, const vector<float> &nominals, const int &step, const string &dcm)
+std::vector<float> * myCurve::get_par_rate(const vector<tuple<int, int>> &tenor, const vector<float> &nominals, const int &step, const string &dcm)
 {
     // create vectors to hold data
     vector<float> * dfs = new vector<float>();
@@ -262,4 +291,11 @@ std::vector<float> * myCurve::get_par_rate(const vector<tuple<int, string>> &ten
 
     // return pointer to vector of forward rates
     return pars;
+}
+
+// extract a particular curve from myCurves object
+myCurve * myCurves::get_crv(const string &crv_nm)
+{
+    myCurve * crv = &this->crv.at(crv_nm);
+    return crv;
 }

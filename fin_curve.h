@@ -26,6 +26,7 @@ int main()
     string sql_file_nm = "data/curves.sql";
     string sql;
     myDataFrame * rslt = new myDataFrame();
+    myDate calc_date = myDate(20211203);
     bool read_only;
     int wait_max_seconds = 10;
     bool delete_old_data = false;
@@ -68,15 +69,18 @@ int main()
     // vacuum SQLite database file to avoid its excessive growth
     db.vacuum();
 
-    // create curve object
-    myCurve crv = myCurve(db, sql_file_nm, "INTERBCRV.EUR");
+    // load all curves
+    myCurves crvs = myCurves(db, sql_file_nm, calc_date);
+
+    // extract INTERBCRV.EUR curve
+    myCurve * crv = crvs.get_crv("INTERBCRV.EUR");
 
     // close connection to SQLite database file
     db.close();
 
     // prepare tenors
     vector<tuple<int, int>> scn_tenors;
-    vector <int> maturities = {182, 365, 549, 730, 913};
+    vector <int> maturities = {20220603, 20221203, 20230605, 20231203, 20240603};
     int scn_no = 0;
     for (int i = 0; i < maturities.size(); i++)
     {
@@ -85,7 +89,7 @@ int main()
 
     // get zero rates
     vector<float> * zeros = new vector<float>();
-    zeros = crv.get_zero_rate(scn_tenors);
+    zeros = crv->get_zero_rate(scn_tenors);
 
     for (int i = 0; i < maturities.size(); i++)
     {
@@ -96,7 +100,7 @@ int main()
 
     // get discount factors
     vector<float> * dfs = new vector<float>();
-    dfs = crv.get_df(scn_tenors);
+    dfs = crv->get_df(scn_tenors);
 
     for (int i = 0; i < maturities.size(); i++)
     {
@@ -107,7 +111,7 @@ int main()
 
     // get forward rates
     vector<float> * fwds = new vector<float>();
-    fwds = crv.get_fwd_rate(scn_tenors);
+    fwds = crv->get_fwd_rate(scn_tenors, "ACT_365");
 
     for (int i = 0; i < maturities.size() - 1; i++)
     {
@@ -120,7 +124,7 @@ int main()
     int step = 3;
     vector<float> * pars = new vector<float>();
     vector <float> nominals = {100., 100., 100., 100., 100.};
-    pars = crv.get_par_rate(scn_tenors, nominals, step);
+    pars = crv->get_par_rate(scn_tenors, nominals, step, "ACT_365");
 
     for (int i = 0; i < maturities.size() - step; i++)
     {
@@ -160,7 +164,7 @@ class myCurve
         std::string underlying1;
         std::string underlying2;
     
-        std::map<std::tuple<int, std::string>, tenor_def> tenor; // map based on scenario number and tenor date string in yyyymmdd format
+        std::map<std::tuple<int, int>, tenor_def> tenor; // map based on scenario number and tenor date integer in yyyymmdd format
     
         // object constructors
         myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::string &crv_nm, const myDate &calc_date);
@@ -169,10 +173,27 @@ class myCurve
         ~myCurve(){};
 
         // object function declarations
-        std::vector<float> * get_year_frac(const std::vector<std::tuple<int, std::string>> &tenor);
-        std::vector<myDate> * get_tenor_dates(const std::vector<std::tuple<int, std::string>> &tenor);
-        std::vector<float> * get_zero_rate(const std::vector<std::tuple<int, std::string>> &tenor);
-        std::vector<float> * get_df(const std::vector<std::tuple<int, std::string>> &tenor);
-        std::vector<float> * get_fwd_rate(const std::vector<std::tuple<int, std::string>> &tenor, const std::string &dcm);
-        std::vector<float> * get_par_rate(const std::vector<std::tuple<int, std::string>> &tenor, const std::vector<float> &nominals, const int &step, const std::string &dcm);
+        std::vector<float> * get_year_frac(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<myDate> * get_tenor_dates(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_zero_rate(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_df(const std::vector<std::tuple<int, int>> &tenor);
+        std::vector<float> * get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm);
+        std::vector<float> * get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<float> &nominals, const int &step, const std::string &dcm);
+};
+
+// define curves class
+class myCurves
+{
+    public:
+        // object variables
+        std::map<std::string, myCurve> crv; // map based on curve name
+
+        // object constructors
+        myCurves(const mySQLite &db, const std::string &sql_file_nm, const myDate &calc_date);
+
+        // object destructors
+        ~myCurves(){};
+
+        // object function declarations
+        myCurve * get_crv(const std::string &crv_nm);
 };
