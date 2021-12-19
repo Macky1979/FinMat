@@ -33,8 +33,8 @@ void print_df(myDataFrame * df)
 int main()
 {
     // variables
-    const char * db_file_nm = "database.db";
-    string sql_file_nm = "SQL_queries.sql";
+    const char * db_file_nm = "data/cities.db";
+    string sql_file_nm = "data/cities.sql";
     string sql;
     myDataFrame * rslt = new myDataFrame();
     bool read_only;
@@ -46,15 +46,15 @@ int main()
     mySQLite db(db_file_nm, read_only, wait_max_seconds);
 
     // create table if it does not exists
-    sql = read_sql(sql_file_nm, 1);
+    sql = read_sql(sql_file_nm, "create_tbl");
     db.exec(sql);
 
     // delete table
-    sql = read_sql(sql_file_nm, 2);
+    sql = read_sql(sql_file_nm, "delete_tbl");
     db.exec("DELETE FROM cities;");   
 
     // insert data into table
-    sql = read_sql(sql_file_nm, 3);
+    sql = read_sql(sql_file_nm, "insert_into_tbl");
     db.exec("INSERT INTO cities (city, country) VALUES ('Prague', 'Czech Republic');");
     
     // vacuum SQLite database file to avoid its excessive growth
@@ -89,7 +89,7 @@ int main()
     db.upload_tbl(*rslt, "cities", delete_old_data);
 
     // print dataframe
-    sql = read_sql(sql_file_nm, 4);
+    sql = read_sql(sql_file_nm, "select_from_tbl");
     rslt = db.query(sql);
 
     // print dataframe
@@ -114,7 +114,7 @@ int main()
 */
 
 // read SQL query from a text file
-std::string read_sql(std::string sql_file_nm, int tag);
+std::string read_sql(std::string sql_file_nm, std::string tag);
 
 // make substitutions in SQL query
 std::string replace_in_sql(std::string sql, std::string replace_what, std::string replace_with);

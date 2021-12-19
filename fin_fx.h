@@ -10,66 +10,71 @@
 #include <iostream>
 #include <vector>
 #include <sqlite3.h>
+#include <memory>
 #include "lib_dataframe.h"
-#include "lib_date.h"
 #include "lib_sqlite.h"
-#include "lib_aux.h"
 #include "fin_fx.h"
-
-using namespace std;
 
 int main()
 {
     // variables
     const char * db_file_nm = "data/finmat.db";
-    string sql_file_nm = "data/fx.sql";
-    string sql;
+    std::string sql_file_nm = "data/finmat.sql";
+    std::string cnty_def = "data/cnty_def.csv";
+    std::string ccy_def = "data/ccy_def.csv";
+    std::string ccy_data = "data/ccy_data.csv";
+    std::string sql;
     myDataFrame * rslt = new myDataFrame();
-    bool read_only;
-    int wait_max_seconds = 15;
-    bool delete_old_data = false;
-    string sep = ",";
+    std::string sep = ",";
     bool quotes = false;
+    bool read_only;
+    int wait_max_seconds = 10;
+    bool delete_old_data = false;
 
     // create SQLite object and open connection to SQLite database file in read-write mode
     read_only = false;
     mySQLite db(db_file_nm, read_only, wait_max_seconds);
 
-    // create FX data table and index if it does not exists
-    sql = read_sql(sql_file_nm, 1);
+    // create tables in SQLite database file if they do not exist
+    sql = read_sql(sql_file_nm, "cnty_def");
     db.exec(sql);
-    sql = read_sql(sql_file_nm, 2);
+    sql = read_sql(sql_file_nm, "ccy_def");
     db.exec(sql);
-    sql = "DELETE FROM fx_data;";
+    sql = read_sql(sql_file_nm, "ccy_data");
     db.exec(sql);
 
-    // create dataframe from .csv file and store it into database
-    rslt->read("data//fx_rates.csv", sep, quotes);
-    db.upload_tbl(*rslt, "fx_data", delete_old_data);
+    // delete old content in the tables
+    db.exec("DELETE FROM cnty_def;");
+    db.exec("DELETE FROM ccy_def;");
+    db.exec("DELETE FROM ccy_data;");
+
+    // create dataframes from .csv files and store them into database
+    rslt->read(cnty_def, sep, quotes);
+    db.upload_tbl(*rslt, "cnty_def", delete_old_data);
+    rslt->clear();
+
+    rslt->read(ccy_def, sep, quotes);
+    db.upload_tbl(*rslt, "ccy_def", delete_old_data);
+    rslt->clear();
+    
+    rslt->read(ccy_data, sep, quotes);
+    db.upload_tbl(*rslt, "ccy_data", delete_old_data);
     rslt->clear();
 
     // vacuum SQLite database file to avoid its excessive growth
     db.vacuum();
 
-    // create curve object
+    // create object with FX rates
     myFx fx = myFx(db, sql_file_nm);
 
     // close connection to SQLite database file
     db.close();
 
-    // prepare tenors
-    tuple<int, string> scn_ccy;
-    int scn_no = 0;
-    string ccy_nm = "CZK";
-    scn_ccy = tuple<int, string>(scn_no, ccy_nm);
-
-    // get FX rate
-    float * fx_rate = fx.get_fx(scn_ccy); 
-    cout << "FX rate for " + ccy_nm + ": " + to_string(*fx_rate) << endl;
-
-    // delete unused pointer
-    fx_rate = NULL;
-    delete fx_rate;   
+    // print CZK / EUR rate
+    std::tuple<int, std::string> scn_ccy = {1, "CZK"};
+    float * fx_rate;
+    fx_rate = fx.get_fx(scn_ccy);
+    std::cout << "CZK / EUR rate for scenario 1: " + std::to_string(*fx_rate) << std::endl;
 
     // everything OK
     return 0;

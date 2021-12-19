@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 /*
@@ -34,6 +35,11 @@ int main()
     cout << "I was 40Y on " + birthsday.get_date_str() + "." << endl;
     birthsday.add("22M");
     cout << "Today I am " + to_string((birthsday - my_birth) / 365.) + " years old." << endl;
+
+    // function remove
+    myDate yesterday = myDate(20211106);
+    yesterday.remove("253M");
+    cout << "253 months before 20211106 was " << yesterday.get_date_str() << endl;
 
     // pointer to myDate object
     myDate * christmas = new myDate(20211224);
@@ -110,9 +116,12 @@ class myDate
         int get_date_int() const {return date_int;}
         std::string get_date_str() const {return date_str;}
         void add(const std::string &date_freq);
+        void remove(const std::string &date_freq);
         bool is_last_day_in_month() const;
         bool is_leap_year() const;
 };
 
 // external functions
 std::vector<myDate> * create_date_serie(const std::string &date_str_begin, const std::string &date_str_end, const std::string &date_freq, const std::string &date_format);
+ float eval_freq(const std::string &freq);
+

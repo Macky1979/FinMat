@@ -1,13 +1,13 @@
-##!1
+###!create_tbl
 CREATE TABLE IF NOT EXISTS cities (city VARCHAR(20), country VARCHAR(20));
 
-##!2
+###!delete_tbl
 DELETE FROM cities;
 
-##!3
+###!insert_into_tbl
 INSERT INTO cities (city, country) VALUES ('Prague', 'Czech Republic');
 
-##!4
+###!select_from_tbl
 SELECT * FROM cities;
 
-##!
+###!

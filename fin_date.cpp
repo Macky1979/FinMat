@@ -2,8 +2,6 @@
 #include <algorithm>
 #include "fin_date.h"
 
-using namespace std;
-
 // calculate year fractions for family of 30/360 methods
 float calc_year_fraction(const int &day1, const int &month1, const int &year1, const int &day2, const int &month2, const int &year2)
 {
@@ -12,7 +10,7 @@ float calc_year_fraction(const int &day1, const int &month1, const int &year1, c
 }
 
 // implementation of day count method; see https://en.wikipedia.org/wiki/Day_count_convention
-float day_count_method(const myDate &date1, const myDate &date2, const string &dcm)
+float day_count_method(const myDate &date1, const myDate &date2, const std::string &dcm)
 {
     // variables
     int day1;
@@ -25,12 +23,10 @@ float day_count_method(const myDate &date1, const myDate &date2, const string &d
     bool last_february_day1;
     bool last_february_day2;
 
-    using namespace std;
-
     // check that date1 preceeds date2
     if (date1.get_days_no() >= date2.get_days_no())
     {
-        throw invalid_argument((string)__func__ + ": Parameter date1 must preceed date2!");
+        throw std::invalid_argument((std::string)__func__ + ": Parameter date1 must preceed date2!");
     }
 
     // extract day, month and year from date 1
@@ -47,12 +43,12 @@ float day_count_method(const myDate &date1, const myDate &date2, const string &d
     if (dcm.compare("30_360") == 0)
     {
         // adjust day1
-        day1 = min(day1, 30);
+        day1 = std::min(day1, 30);
     
         // adjust day2
         if (day1 > 29)
         {
-            day2 = min(day2, 30);
+            day2 = std::min(day2, 30);
         }
 
         // calculate year fraction
@@ -179,7 +175,7 @@ float day_count_method(const myDate &date1, const myDate &date2, const string &d
     // supported day count method
     else
     {
-        throw invalid_argument((string)__func__ + ": " + dcm + " is not a supported day count method!");
+        throw std::invalid_argument((std::string)__func__ + ": " + dcm + " is not a supported day count method!");
     }
 
     // return calcualted year fraction

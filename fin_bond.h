@@ -6,21 +6,10 @@
 #include "lib_date.h"
 #include "fin_curve.h"
 
-// coupon data type
-struct coupon
-{
-    bool appl = false;
-    bool fixed = false;
-    std::string date1;
-    std::string date2;
-    float year_frac;
-    float rate;
-};
-
 // event data type
 struct event
 {
-    int date;
+    myDate date;    
     float nominal;
     bool is_cpn_payment = false;
     bool is_repricing = false;
@@ -28,12 +17,12 @@ struct event
     bool is_cpn_fix = false;
     float cpn;
     std::vector<myDate> repricing_dates;    
-    float repricing_year_frac;
-    std::vector<myDate> cpn_dates;
     float cpn_year_frac;
     float cpn_payment;
     float amort_payment;
     float cf;
+    float df;
+    float cf_npv;
 };
 
 // bond data
@@ -54,7 +43,8 @@ struct bnd_info
 	float nominal;
 	myDate deal_date;
 	myDate maturity_date;
-	bool is_acc_int;
+    std::string dcm;
+    bool is_acc_int;
     float acc_int;
 	float cpn_rate;
 	myDate first_cpn_date;
@@ -66,8 +56,8 @@ struct bnd_info
 	double amort;
 	double rate_mult;
 	double rate_add;
-	std::string curve_disc;
-	std::string curve_fwd;
+	std::string crv_disc;
+	std::string crv_fwd;
     float npv;
     std::string wrn_msg = "";
     std::vector<event> events;
@@ -77,7 +67,7 @@ struct bnd_info
  * BOND CLASS
  */
 
-class myBond
+class myBonds
 {
     private:
         // variables
@@ -85,10 +75,10 @@ class myBond
 
     public:
         // object constructors
-        myBond(const mySQLite &db, const std::string &sql);
+        myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_date);
 
         // object destructors
-        ~myBond(){};
+        ~myBonds(){};
 
         // object function declarations
         //void myBond::check();

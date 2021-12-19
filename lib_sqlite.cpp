@@ -10,8 +10,6 @@
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 
-using namespace std;
-
 /*
  * OBJECT CONSTRUCTORS
  */
@@ -39,12 +37,12 @@ void mySQLite::open(const char *db_file_nm, const bool read_only)
         do
         {
             sts = sqlite3_open_v2(db_file_nm, &db, SQLITE_OPEN_READONLY, NULL);
-            this_thread::sleep_for(chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(1));
             counter--;
 
             if (counter == 0)
             {
-                throw runtime_error((string)__func__ + ": SQLite database file is locked for more than " + to_string(wait_max_seconds) + " seconds!");
+                throw std::runtime_error((std::string)__func__ + ": SQLite database file is locked for more than " + std::to_string(wait_max_seconds) + " seconds!");
             }
 
         }
@@ -55,12 +53,12 @@ void mySQLite::open(const char *db_file_nm, const bool read_only)
         do
         {
             sts = sqlite3_open_v2(db_file_nm, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
-            this_thread::sleep_for(chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(1));
             counter--;
 
             if (counter == 0)
             {
-                throw runtime_error((string)__func__ + ": SQLite database file is locked for more than " + to_string(wait_max_seconds) + " seconds!");
+                throw std::runtime_error((std::string)__func__ + ": SQLite database file is locked for more than " + std::to_string(wait_max_seconds) + " seconds!");
             }
 
         }
@@ -70,7 +68,7 @@ void mySQLite::open(const char *db_file_nm, const bool read_only)
     // check everything is OK and throw an error if not
     if (sts != SQLITE_OK)
     {
-        throw runtime_error((string)__func__ + ": " + sqlite3_errstr(sts));
+        throw std::runtime_error((std::string)__func__ + ": " + sqlite3_errstr(sts));
     }
 }
 
@@ -85,12 +83,12 @@ void mySQLite::close() const
     do
     {
         sts = sqlite3_close(db);
-        this_thread::sleep_for(chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         counter--;
 
         if (counter == 0)
         {
-            throw runtime_error("SQLite database file is locked for more than " + to_string(wait_max_seconds) + " seconds!");
+            throw std::runtime_error("SQLite database file is locked for more than " + std::to_string(wait_max_seconds) + " seconds!");
         }
     }
     while ((sts == SQLITE_BUSY) && (counter > 0)); // wait for "free" SQLite database file
@@ -98,7 +96,7 @@ void mySQLite::close() const
     // check everything is OK and throw an error if not 
     if (sts != SQLITE_OK)
     {
-        throw runtime_error((string)__func__ + ": " + sqlite3_errstr(sts));
+        throw std::runtime_error((std::string)__func__ + ": " + sqlite3_errstr(sts));
     }
 }
 
@@ -113,12 +111,12 @@ void mySQLite::vacuum() const
     do
     {
         sts = sqlite3_exec(db, "VACUUM;", NULL, NULL, NULL);
-        this_thread::sleep_for(chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         counter--;
 
         if (counter == 0)
         {
-            throw runtime_error("SQLite database file is locked for more than " + to_string(wait_max_seconds) + " seconds!");
+            throw std::runtime_error("SQLite database file is locked for more than " + std::to_string(wait_max_seconds) + " seconds!");
         }
 
     }
@@ -127,12 +125,12 @@ void mySQLite::vacuum() const
     // check everything is OK and throw an error if not 
     if (sts != SQLITE_OK)
     {
-        throw runtime_error((string)__func__ + ": " + sqlite3_errstr(sts));
+        throw std::runtime_error((std::string)__func__ + ": " + sqlite3_errstr(sts));
     }
 }
 
 // execute SQL command (INSERT, DELETE, UPDATE)
-void mySQLite::exec(const string &sql) const
+void mySQLite::exec(const std::string &sql) const
 {
     // SQLite status code
     int sts;
@@ -142,12 +140,12 @@ void mySQLite::exec(const string &sql) const
     do
     {
         sts = sqlite3_exec(db, sql.c_str(), NULL, NULL, NULL);
-        this_thread::sleep_for(chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         counter--;
 
         if (counter == 0)
         {
-            throw runtime_error((string)__func__ + ": SQLite database file is locked for more than " + to_string(wait_max_seconds) + " seconds!");
+            throw std::runtime_error((std::string)__func__ + ": SQLite database file is locked for more than " + std::to_string(wait_max_seconds) + " seconds!");
         }
 
     }
@@ -156,8 +154,8 @@ void mySQLite::exec(const string &sql) const
     // check everything is OK and throw an error if not 
     if (sts != SQLITE_OK)
     {
-        cout << sql << endl;
-        throw runtime_error((string)__func__ + ": " + sqlite3_errstr(sts));
+        std::cout << sql << std::endl;
+        throw std::runtime_error((std::string)__func__ + ": " + sqlite3_errstr(sts));
     }
 }
 
@@ -191,9 +189,9 @@ bool check_type(sqlite3_stmt * stmt, myDataFrame * rslt, int cols_no)
                     (*rslt).tbl.dtypes.push_back("CHAR");
                     break;                    
                 case SQLITE_BLOB:
-                    throw invalid_argument((string)__func__ + ": Unsupported SQL data type SQLITE_BLOB in column " + (*rslt).tbl.col_nms[col_idx] + "!");
+                    throw std::invalid_argument((std::string)__func__ + ": Unsupported SQL data type SQLITE_BLOB in column " + (*rslt).tbl.col_nms[col_idx] + "!");
                 default:
-                    throw invalid_argument((string)__func__ + ": Unsupported SQL data type with code " + to_string(col_dtype) + " in column " + (*rslt).tbl.col_nms[col_idx] + "!");
+                    throw std::invalid_argument((std::string)__func__ + ": Unsupported SQL data type with code " + std::to_string(col_dtype) + " in column " + (*rslt).tbl.col_nms[col_idx] + "!");
             }
         }
         
@@ -206,8 +204,8 @@ bool check_type(sqlite3_stmt * stmt, myDataFrame * rslt, int cols_no)
 // add row to SQL query result
 void add_row(sqlite3_stmt * stmt, myDataFrame * rslt, int cols_no)
 {
-    // vector of strings to store data in
-    vector<string> row;
+    // std::vector of std::strings to store data in
+    std::vector<std::string> row;
 
     // go column by column
     for (int col_idx = 0; col_idx < cols_no; col_idx++)
@@ -223,7 +221,7 @@ void add_row(sqlite3_stmt * stmt, myDataFrame * rslt, int cols_no)
 }
 
 // execute SQL query (SELECT)
-myDataFrame * mySQLite::query(const string &sql) const
+myDataFrame * mySQLite::query(const std::string &sql) const
 {
     // SQLite status code
     int sts;
@@ -241,18 +239,18 @@ myDataFrame * mySQLite::query(const string &sql) const
 
 
     // data row of dataframe
-    vector<string> row;
+    std::vector<std::string> row;
 
     // initiate SQL query
     do
     {
         sts = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
-        this_thread::sleep_for(chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         counter--;
 
         if (counter == 0)
         {
-            throw runtime_error((string)__func__ + ": SQLite database file is locked for more than " + to_string(wait_max_seconds) + " seconds!");
+            throw std::runtime_error((std::string)__func__ + ": SQLite database file is locked for more than " + std::to_string(wait_max_seconds) + " seconds!");
         }
 
     }
@@ -262,8 +260,8 @@ myDataFrame * mySQLite::query(const string &sql) const
     if (sts != SQLITE_OK)
     {
         sqlite3_finalize(stmt);
-        cout << sql << endl;
-        throw runtime_error((string)__func__ + ": " + sqlite3_errstr(sts));
+        std::cout << sql << std::endl;
+        throw std::runtime_error((std::string)__func__ + ": " + sqlite3_errstr(sts));
     }
 
     // get number of columns
@@ -325,13 +323,13 @@ void mySQLite::upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, con
     int cols_no;
     long rows_no;
     int col_idx;
-    string col_nm;
-    string dtype;
-    string sql;
-    string sql_insert_row;
-    string sql_insert_row_tmpl;
-    string col_allias;
-    string col_val;
+    std::string col_nm;
+    std::string dtype;
+    std::string sql;
+    std::string sql_insert_row;
+    std::string sql_insert_row_tmpl;
+    std::string col_allias;
+    std::string col_val;
     int col_pos;
     int col_len;
 
@@ -359,7 +357,7 @@ void mySQLite::upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, con
             }
             else
             {
-                throw invalid_argument((string)__func__ + ": Unsupported SQL data type " + dtype + " in column " + col_nm + "!");
+                throw std::invalid_argument((std::string)__func__ + ": Unsupported SQL data type " + dtype + " in column " + col_nm + "!");
             }
         }
 
@@ -394,7 +392,7 @@ void mySQLite::upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, con
         sql_insert_row_tmpl += ") VALUES (";
         for (int col_idx = 0; col_idx < cols_no; col_idx++)
         {
-            col_allias = "col_idx_" + to_string(col_idx);
+            col_allias = "col_idx_" + std::to_string(col_idx);
             sql_insert_row_tmpl += col_allias + ", ";
         }
         sql_insert_row_tmpl = sql_insert_row_tmpl.substr(0, sql_insert_row_tmpl.size() - 2);
@@ -423,7 +421,7 @@ void mySQLite::upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, con
                 }
 
                 // replace column allias with column value
-                col_allias = "col_idx_" + to_string(col_idx);
+                col_allias = "col_idx_" + std::to_string(col_idx);
                 col_pos = sql_insert_row.find(col_allias);
                 col_len = col_allias.size();
                 sql_insert_row.replace(col_pos, col_len, col_val);
@@ -444,25 +442,25 @@ void mySQLite::upload_tbl(const myDataFrame &tbl, const std::string &tbl_nm, con
  * STANDALONE FUNCTIONS
  */
 
-string read_sql(string sql_file_nm, int tag_no)
+std::string read_sql(std::string sql_file_nm, std::string tag)
 {
     // declare file stream
-    ifstream f;
+    std::ifstream f;
 
     // varible holding line
-    string line;
+    std::string line;
 
-    // string holding tag
-    string tag_aux = "###!";
-    string tag = tag_aux + to_string(tag_no);
+    // std::string holding tag
+    std::string tag_aux = "###!";
+    tag = tag_aux + tag;
 
     // boolean variable indicating begining of SQL query we are looking for
     bool sql_query_found = false;
 
-    // string variable that hold SQL query we want to extract
-    string sql = "";
+    // std::string variable that hold SQL query we want to extract
+    std::string sql = "";
 
-    f.open(sql_file_nm, ios::out);
+    f.open(sql_file_nm, std::ios::out);
     if (f.is_open())
     {
         while(getline(f, line))
@@ -473,7 +471,7 @@ string read_sql(string sql_file_nm, int tag_no)
                 // check that SQL query has been loaded?
                 if (sql.compare("") == 0)
                 {
-                    throw runtime_error((string)__func__ + ": Tag ###!" + to_string(tag_no) + " not found in file " + sql_file_nm + "!");
+                    throw std::runtime_error((std::string)__func__ + ": Tag " + tag + " not found in file " + sql_file_nm + "!");
                 }
 
                 // we have reached another SQL query, so return what you have read so far
@@ -497,7 +495,7 @@ string read_sql(string sql_file_nm, int tag_no)
         // check that SQL query has been loaded?
         if (sql.compare("") == 0)
         {
-            throw runtime_error((string)__func__ + ": Tag ###!" + to_string(tag_no) + " not found in file " + sql_file_nm + "!");
+            throw std::runtime_error((std::string)__func__ + ": Tag " + tag + " not found in file " + sql_file_nm + "!");
         }
 
         // we have reached end of the file, so return what you have read so far
@@ -505,20 +503,20 @@ string read_sql(string sql_file_nm, int tag_no)
     }
     else
     {
-        throw runtime_error((string)__func__ + ": Unable to open file " + sql_file_nm + "!");
+        throw std::runtime_error((std::string)__func__ + ": Unable to open file " + sql_file_nm + "!");
     }
 }
 
 // make substitutions in SQL query
-string replace_in_sql(string sql, string replace_what, string replace_with)
+std::string replace_in_sql(std::string sql, std::string replace_what, std::string replace_with)
 {
-    // find position of replace_what string
+    // find position of replace_what std::string
     size_t pos = sql.find(replace_what);
 
     // check that replace_what is present in SQL query
-    if (pos == string::npos)
+    if (pos == std::string::npos)
     {
-        throw invalid_argument((string)__func__ + ": " + replace_what + " is  is not present in SQL query!");
+        throw std::invalid_argument((std::string)__func__ + ": " + replace_what + " is  is not present in SQL query!");
     }
 
     // replace replace_what with replace_with

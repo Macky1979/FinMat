@@ -1,16 +1,16 @@
 #include <string>
 #include <iostream>
+#include <tuple>
 #include <vector>
+#include <memory>
 #include "lib_date.h"
-
-using namespace std;
 
 /*
  * GENERAL FUNCTIONS
  */
 
 // determine number of days in month
-int days_in_month(const int &year, const int &month)
+static int days_in_month(const int &year, const int &month)
 {
     switch (month)
     {
@@ -37,12 +37,12 @@ int days_in_month(const int &year, const int &month)
                 return 28;
         // incorrect month
         default:
-            throw invalid_argument((string)__func__ + ": " + to_string(month) + "  is not supported month!" );
+            throw std::invalid_argument((std::string)__func__ + ": " + std::to_string(month) + "  is not supported month!" );
     }
 }
 
 // add months
-int * add_months(const int &year, const int &month, const int &day, const int &months_to_add)
+static int * add_months(const int &year, const int &month, const int &day, const int &months_to_add)
 {
     // declare array of integers to hold information on year, month and day
     static int date[3];
@@ -73,7 +73,7 @@ int * add_months(const int &year, const int &month, const int &day, const int &m
 
     // check maximum day in month
     _day = days_in_month(_year, _month);
-    if (_day > day)
+    if (day < _day)
         _day = day;
 
     // return result
@@ -84,11 +84,71 @@ int * add_months(const int &year, const int &month, const int &day, const int &m
     return date;
 }
 
-// create a vector of dates from start date to end date using time step of a given frequency
-vector<myDate> * create_date_serie(const string &date_str_begin, const string &date_str_end, const string &date_freq, const string &date_format)
+// remove months
+static int * remove_months(const int &year, const int &month, const int &day, const int &months_to_remove)
 {
-    // create vector to hold date serie
-    vector<myDate> * date_serie = new vector<myDate>();
+    // declare array of integers to hold information on year, month and day
+    static int date[3];
+
+    // individual date components
+    int _years_to_remove;
+    int _year;
+    int _month;
+    int _day;
+
+    // determine how many years and months should be removed straight away
+    _years_to_remove = months_to_remove / 12;
+    _month = months_to_remove % 12;
+
+    // determine month
+    if ((_month > 0) && (month - _month) < 1)
+    {
+        _years_to_remove++;
+        _month = (12 + month - _month);
+    }
+    else
+    {
+        _month = month - _month;
+    }
+
+    // determine year
+    _year = year - _years_to_remove;
+
+    // check maximum day in month
+    _day = days_in_month(_year, _month);
+    if (day < _day)
+        _day = day;
+
+    // return result
+    date[0] = _year;
+    date[1] = _month;
+    date[2] = _day;
+
+    return date;
+}
+
+// decompose date frequency of (for example) "6M" into 6 and "M"
+static std::tuple<int, std::string> decompose_freq(const std::string &freq)
+{
+   // variables to hold frequency type (e.g. D, M, Y) and number of frequency units
+   int freq_no;
+   std::string freq_type; 
+
+   // determine frequency units
+   freq_no = stoi(freq.substr(0, freq.size() - 1));
+
+   // determine frequency type
+   freq_type = freq.substr(freq.size() - 1, 1);
+
+   // return number of frequency units and frequency type
+   return {freq_no, freq_type};
+ }
+
+// create a std::vector of dates from start date to end date using time step of a given frequency
+std::vector<myDate> * create_date_serie(const std::string &date_str_begin, const std::string &date_str_end, const std::string &date_freq, const std::string &date_format)
+{
+    // create std::vector to hold date serie
+    std::vector<myDate> * date_serie = new std::vector<myDate>();
 
     //create date end and current date objects
     myDate date_end(date_str_end, date_format);
@@ -101,15 +161,40 @@ vector<myDate> * create_date_serie(const string &date_str_begin, const string &d
         date_current.add(date_freq);
     }
 
-    // return pointer to the vector with date serie
+    // return pointer to the std::vector with date serie
     return date_serie;
+}
+
+// convert date frequency std::string into approximate year fraction; could
+// be used to compare individual date frequencies
+float eval_freq(const std::string &freq)
+{
+    int freq_no;
+    std::string freq_type;
+
+    if (freq_type.compare("D") == 0)
+    {
+        return freq_no / 365.25;
+    }
+    else if (freq_type.compare("M") == 0)
+    {
+        return 30.438 * freq_no / 365.25;
+    }
+    else if (freq_type.compare("Y") == 0)
+    {
+        return freq_no;
+    }
+    else
+    {
+        throw std::runtime_error((std::string)__func__ + ": unsupported date frequency type " + freq_type + "!");
+    }
 }
 
 /*
  * OBJECT FUNCTIONS
  */
 
-// set year, month and day based on date string in yyyymmdd format
+// set year, month and day based on date std::string in yyyymmdd format
 void myDate::set_year_month_day()
 {
     // determine year, month and day
@@ -136,10 +221,10 @@ void myDate::set_days_no()
         days_no += day - 1;
 }
 
-// update date integer, year, month and day based on date string in format yyyymmdd
+// update date integer, year, month and day based on date std::string in format yyyymmdd
 void myDate::recalc()
 {
-    // convert yyyymmdd date string into integer
+    // convert yyyymmdd date std::string into integer
     date_int = stoi(date_str);
 
     // set year, month and day
@@ -150,17 +235,12 @@ void myDate::recalc()
 }
 
 //shift date forward using specified date frequency (e.g. 2D, 3M, 10Y)
-void myDate::add(const string &date_freq)
+void myDate::add(const std::string &date_freq)
 {
     // variables to hold frequency type (e.g. D, M, Y) and number of frequency units
     int date_freq_no;
-    string date_freq_type;
-
-    // determine frequency units
-    date_freq_no = stoi(date_freq.substr(0, date_freq.size() - 1));
-
-    // determine frequency type
-    date_freq_type = date_freq.substr(date_freq.size() - 1, 1);
+    std::string date_freq_type;
+    std::tie(date_freq_no, date_freq_type) = decompose_freq(date_freq); 
 
     if (date_freq_type.compare("D") == 0)
     {
@@ -168,19 +248,19 @@ void myDate::add(const string &date_freq)
         int _years_to_add;
         int _months_to_add;
         int _days_in_month;
-        string _freq_date;
+        std::string _freq_date;
 
         // store number of days in the current date
-        _days_no = days_no;
+        _days_no = this->days_no;
 
-        // add years to the current dayes
+        // add years to the current days
         _years_to_add = date_freq_no / 366;
         if (_years_to_add != 0)
         {
             _days_no = this->get_days_no();
-            _freq_date = to_string(_years_to_add) + "Y";
+            _freq_date = std::to_string(_years_to_add) + "Y";
             this->add(_freq_date);
-            date_freq_no -= days_no - _days_no;
+            date_freq_no -= this->days_no - _days_no;
         }
 
         // add months in bulk
@@ -188,47 +268,128 @@ void myDate::add(const string &date_freq)
         if (_months_to_add != 0)
         {
             _days_no = this->get_days_no();
-            _freq_date = to_string(_months_to_add) + "M";
+            _freq_date = std::to_string(_months_to_add) + "M";
             this->add(_freq_date);
-            date_freq_no -= days_no - _days_no;
+            date_freq_no -= this->days_no - _days_no;
         }
 
         // add the last one or two months
-        _days_in_month = days_in_month(year, month);
-        while (date_freq_no + day > _days_in_month)
+        _days_in_month = days_in_month(this->year, this->month);
+        while (date_freq_no + this->day > _days_in_month)
         {
             _days_no = this->get_days_no();
             _freq_date = "1M";
             this->add(_freq_date);
-            date_freq_no -= days_no - _days_no;
-            _days_in_month = days_in_month(year, month);
+            date_freq_no -= this->days_no - _days_no;
+            _days_in_month = days_in_month(this->year, this->month);
         }
         
         // add remaining days
-        day += date_freq_no;
-        date_str = to_string(year * 10000 + month * 100 + day);
-        recalc();
+        this->day += date_freq_no;
+        this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+        this->recalc();
 
     }
     else if (date_freq_type.compare("M") == 0)
     {
         int * date;
-        date = add_months(year, month, day, date_freq_no);
-        year = date[0];
-        month = date[1];
-        day = date[2];
-        date_str = to_string(year * 10000 + month * 100 + day);
-        recalc();
+        date = add_months(this->year, this->month, this->day, date_freq_no);
+        this->year = date[0];
+        this->month = date[1];
+        this->day = date[2];
+        this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+        this->recalc();
     }
     else if (date_freq_type.compare("Y") == 0)
     {
-        year += date_freq_no;
-        date_str = to_string(year * 10000 + month * 100 + day);
-        recalc();
+        this->year += date_freq_no;
+        this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+        this->recalc();
     }
     else
     {
-        throw invalid_argument((string)__func__ + ": " + date_freq_type + " is  notsupported date date frequency type!");
+        throw std::invalid_argument((std::string)__func__ + ": " + date_freq_type + " is  notsupported date date frequency type!");
+    }
+}
+
+//shift date forward using specified date frequency (e.g. 2D, 3M, 10Y)
+void myDate::remove(const std::string &date_freq)
+{
+    // variables to hold frequency type (e.g. D, M, Y) and number of frequency units
+    int date_freq_no;
+    std::string date_freq_type;
+
+    tie(date_freq_no, date_freq_type) = decompose_freq(date_freq);
+
+    if (date_freq_type.compare("D") == 0)
+    {
+        int _days_no;
+        int _years_to_remove;
+        int _months_to_remove;
+        int _days_in_month;
+        std::string _freq_date;
+
+        // store number of days in the current date
+        _days_no = this->days_no;
+
+        // remove years from the current days
+        _years_to_remove = date_freq_no / 365;
+        if (_years_to_remove != 0)
+        {
+            _days_no = this->get_days_no();
+            _freq_date = std::to_string(_years_to_remove) + "Y";
+            this->remove(_freq_date);
+            date_freq_no -= _days_no - this->days_no;
+        }
+
+        // remove months in bulk
+        _months_to_remove = date_freq_no / 30;
+        if (_months_to_remove != 0)
+        {
+            _days_no = this->get_days_no();
+            _freq_date = std::to_string(_months_to_remove) + "M";
+            this->remove(_freq_date);
+            date_freq_no -= _days_no - this->days_no;
+        }
+
+        // remove the last one or two months
+        while (this->day - date_freq_no < 0)
+        {
+            date_freq_no -= this->day;
+            this->month--;
+            _days_in_month = days_in_month(this->year, this->month);
+            this->day = _days_in_month;
+            if (this->month < 0)
+            {
+                this->year--;
+                this->month += 12;
+            }
+            this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+            this->recalc();
+        }
+        this->day -= date_freq_no;
+        this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+        this->recalc();            
+    }
+    else if (date_freq_type.compare("M") == 0)
+    {
+        int * date;
+        date = remove_months(this->year, this->month, this->day, date_freq_no);
+        this->year = date[0];
+        this->month = date[1];
+        this->day = date[2];
+        this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+        this->recalc();
+    }
+    else if (date_freq_type.compare("Y") == 0)
+    {
+        year -= date_freq_no;
+        this->date_str = std::to_string(this->year * 10000 + this->month * 100 + this->day);
+        this->recalc();
+    }
+    else
+    {
+        throw std::invalid_argument((std::string)__func__ + ": " + date_freq_type + " is  notsupported date date frequency type!");
     }
 }
 
@@ -295,9 +456,9 @@ myDate::myDate()
     days_no = 0;
 };
 
-myDate::myDate(const string &date_str, const string &date_format)
+myDate::myDate(const std::string &date_str, const std::string &date_format)
 {
-    // convert date string into yyyymmdd string format
+    // convert date std::string into yyyymmdd string format
     if (date_format.compare("dd/mm/yyyy") == 0)
     {
         this->date_str = date_str.substr(6,4) + date_str.substr(3,2) + date_str.substr(0, 2);
@@ -316,7 +477,7 @@ myDate::myDate(const string &date_str, const string &date_format)
     }
     else
     {
-        throw invalid_argument((string)__func__ + ": " + date_format + " is not a supported date string format!");
+        throw std::invalid_argument((std::string)__func__ + ": " + date_format + " is not a supported date string format!");
     }
 
     // determine year, month, day and number of days since 01/01/1601
@@ -329,8 +490,8 @@ myDate::myDate(const int &date_int)
     // store date integer; we assume yyyymmdd format
     this->date_int = date_int;
 
-    // store date as string in yyyymmdd
-    this->date_str = to_string(date_int);
+    // store date as std::string in yyyymmdd
+    this->date_str = std::to_string(date_int);
 
     // determine year, month, day and number of days since 01/01/1601
     this->recalc();

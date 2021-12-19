@@ -2,8 +2,6 @@
 #include <fstream>
 #include "lib_dataframe.h"
 
-using namespace std;
-
 /*
  * OBJECT FUNCTIONS
  */
@@ -29,10 +27,10 @@ const int myDataFrame::get_cols_no() const
 }
 
 // auxiliary function that prepares a single row to be written into a text file
-string process_row(const vector<string> cols, const string &sep, const bool &quotes)
+std::string process_row(const std::vector<std::string> cols, const std::string &sep, const bool &quotes)
 {
-    // string to hold the row
-    string row = "";
+    // std::string to hold the row
+    std::string row = "";
 
     // go column by column
     for (int col_idx = 0; col_idx < cols.size(); col_idx++)
@@ -72,13 +70,13 @@ string process_row(const vector<string> cols, const string &sep, const bool &quo
 }
 
 // write data frame into a .csv file
-void myDataFrame::write(const string &file_nm, const string &sep, const bool &quotes) const
+void myDataFrame::write(const std::string &file_nm, const std::string &sep, const bool &quotes) const
 {
     // variable to hold row
-    string row;
+    std::string row;
 
     // open file
-    ofstream f;
+    std::ofstream f;
     f.open(file_nm);
 
     // check that the file is indeed opened
@@ -104,18 +102,18 @@ void myDataFrame::write(const string &file_nm, const string &sep, const bool &qu
     }
     else
     {
-        throw runtime_error((string)__func__ + ": Unable to open file " + file_nm + "!");
+        throw std::runtime_error((std::string)__func__ + ": Unable to open file " + file_nm + "!");
     }
 }
 
 // cut row read from .csv file into vector of cells
-vector<string> * cut_row_into_cells(string row, string sep, const bool &quotes)
+std::vector<std::string> * cut_row_into_cells(std::string row, std::string sep, const bool &quotes)
 {
     // column separator position
     size_t pos;
 
     // variable to hold vector of cells
-    vector<string> * cells = new vector<string>();
+    std::vector<std::string> * cells = new std::vector<std::string>();
 
     // separator
     if (quotes)
@@ -131,7 +129,7 @@ vector<string> * cut_row_into_cells(string row, string sep, const bool &quotes)
     }
 
     // cut row into cells
-    while (row.find(sep) != string::npos)
+    while (row.find(sep) != std::string::npos)
     {
         // get position of the column separator
         pos = row.find(sep);
@@ -149,17 +147,17 @@ vector<string> * cut_row_into_cells(string row, string sep, const bool &quotes)
 }
 
 // write data frame into a .csv file
-void myDataFrame::read(const string &file_nm, const string &sep, const bool &quotes)
+void myDataFrame::read(const std::string &file_nm, const std::string &sep, const bool &quotes)
 {
     // row read from the .csv file
-    string row;
+    std::string row;
 
     // vector of cells
-    vector<string> * cells;
+    std::vector<std::string> * cells;
 
     // open file
-    ifstream f;
-    f.open(file_nm, ios::out);
+    std::ifstream f;
+    f.open(file_nm, std::ios::out);
 
     // check that the file is indeed opened
     if (f.is_open())
@@ -186,7 +184,6 @@ void myDataFrame::read(const string &file_nm, const string &sep, const bool &quo
     }
     else
     {
-        throw runtime_error((string)__func__ + ": Unable to open file " + file_nm + "!");
+        throw std::runtime_error((std::string)__func__ + ": Unable to open file " + file_nm + "!");
     }
-    
 }

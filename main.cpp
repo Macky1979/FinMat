@@ -2,127 +2,125 @@
 #include <iostream>
 #include <vector>
 #include <sqlite3.h>
+#include <memory>
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
-#include "lib_aux.h"
-#include "lib_date.h"
-#include "fin_curve.h"
-
-using namespace std;
+#include "fin_fx.h"
+#include "fin_bond.h"
 
 int main()
 {
     // variables
     const char * db_file_nm = "data/finmat.db";
-    string sql_file_nm = "data/curves.sql";
-    string sql;
+    std::string sql_file_nm = "data/finmat.sql";
+    std::string cnty_def = "data/cnty_def.csv";
+    std::string ccy_def = "data/ccy_def.csv";
+    std::string ccy_data = "data/ccy_data.csv";
+    std::string freq_def = "data/freq_def.csv";
+    std::string dcm_def = "data/dcm_def.csv";
+    std::string crv_def = "data/crv_def.csv";
+    std::string interbcrv_eur = "data/curves/interbcrv_eur.csv";
+    std::string spreadcrv_bef = "data/curves/spreadcrv_bef.csv";
+    std::string bnd_data = "data/bnd_data.csv";
+    std::string sql;
     myDataFrame * rslt = new myDataFrame();
     myDate calc_date = myDate(20211203);
+    std::string sep = ",";
+    bool quotes = false;
     bool read_only;
     int wait_max_seconds = 10;
     bool delete_old_data = false;
-    string sep = ",";
-    bool quotes = false;
 
     // create SQLite object and open connection to SQLite database file in read-write mode
     read_only = false;
     mySQLite db(db_file_nm, read_only, wait_max_seconds);
 
-    // create curve definition table and index if it does not exists
-    sql = read_sql(sql_file_nm, 1);
-    db.exec(sql);
-    sql = read_sql(sql_file_nm, 2);
-    db.exec(sql);
-    sql = "DELETE FROM crv_def;";
+    // create tables in SQLite database file if they do not exist
+    sql = read_sql(sql_file_nm, "cnty_def");
     db.exec(sql);
 
-    // create curve data table and index if it does not exists
-    sql = read_sql(sql_file_nm, 3);
+    sql = read_sql(sql_file_nm, "ccy_def");
     db.exec(sql);
-    sql = read_sql(sql_file_nm, 4);
+
+    sql = read_sql(sql_file_nm, "ccy_data");
     db.exec(sql);
-    sql = "DELETE FROM crv_data;";
+
+    sql = read_sql(sql_file_nm, "freq_def");
     db.exec(sql);
+
+    sql = read_sql(sql_file_nm, "dcm_def");
+    db.exec(sql);
+
+    sql = read_sql(sql_file_nm, "crv_def");
+    db.exec(sql);
+
+    sql = read_sql(sql_file_nm, "crv_data");
+    db.exec(sql);
+
+    sql = read_sql(sql_file_nm, "bnd_data");
+    db.exec(sql);
+
+    // delete old content in the tables
+    db.exec("DELETE FROM cnty_def;");
+    db.exec("DELETE FROM ccy_def;");
+    db.exec("DELETE FROM ccy_data;");
+    db.exec("DELETE FROM freq_def;");
+    db.exec("DELETE FROM dcm_def;");
+    db.exec("DELETE FROM crv_def;");
+    db.exec("DELETE FROM crv_data;");
+    db.exec("DELETE FROM bnd_data;");
 
     // create dataframes from .csv files and store them into database
-    rslt->read("data//curve_definitions.csv", sep, quotes);
+    rslt->read(cnty_def, sep, quotes);
+    db.upload_tbl(*rslt, "cnty_def", delete_old_data);
+    rslt->clear();
+
+    rslt->read(ccy_def, sep, quotes);
+    db.upload_tbl(*rslt, "ccy_def", delete_old_data);
+    rslt->clear();
+    
+    rslt->read(ccy_data, sep, quotes);
+    db.upload_tbl(*rslt, "ccy_data", delete_old_data);
+    rslt->clear();
+
+    rslt->read(freq_def, sep, quotes);
+    db.upload_tbl(*rslt, "freq_def", delete_old_data);
+    rslt->clear();
+    
+    rslt->read(dcm_def, sep, quotes);
+    db.upload_tbl(*rslt, "dcm_def", delete_old_data);
+    rslt->clear();
+
+    rslt->read(crv_def, sep, quotes);
     db.upload_tbl(*rslt, "crv_def", delete_old_data);
     rslt->clear();
 
-    rslt->read("data//interbcrv_eur.csv", sep, quotes);
+    rslt->read(interbcrv_eur, sep, quotes);
+    db.upload_tbl(*rslt, "crv_data", delete_old_data);
+    rslt->clear();
+   
+    rslt->read(spreadcrv_bef, sep, quotes);
     db.upload_tbl(*rslt, "crv_data", delete_old_data);
     rslt->clear();
 
-    rslt->read("data//spreadcrv_bef.csv", sep, quotes);
-    db.upload_tbl(*rslt, "crv_data", delete_old_data);
+    rslt->read(bnd_data, sep, quotes);
+    db.upload_tbl(*rslt, "bnd_data", delete_old_data);
     rslt->clear();
 
     // vacuum SQLite database file to avoid its excessive growth
     db.vacuum();
 
+    // load FX rates
+    myFx fx = myFx(db, sql_file_nm);
+
     // load all curves
     myCurves crvs = myCurves(db, sql_file_nm, calc_date);
 
-    // extract INTERBCRV.EUR curve
-    myCurve * crv = crvs.get_crv("INTERBCRV.EUR");
+    // load bonds 
+    myBonds bnds = myBonds(db, sql_file_nm, calc_date);
 
     // close connection to SQLite database file
     db.close();
-
-    // prepare tenors
-    vector<tuple<int, int>> scn_tenors;
-    vector <int> maturities = {20220603, 20221203, 20230605, 20231203, 20240603};
-    int scn_no = 0;
-    for (int i = 0; i < maturities.size(); i++)
-    {
-        scn_tenors.push_back(tuple<int, int>(scn_no, maturities[i]));
-    }
-
-    // get zero rates
-    vector<float> * zeros = new vector<float>();
-    zeros = crv->get_zero_rate(scn_tenors);
-
-    for (int i = 0; i < maturities.size(); i++)
-    {
-        cout << "zero rate for " + to_string(maturities[i]) + "D: " + to_string((*zeros)[i]) << endl;
-    }
-
-    delete zeros;   
-
-    // get discount factors
-    vector<float> * dfs = new vector<float>();
-    dfs = crv->get_df(scn_tenors);
-
-    for (int i = 0; i < maturities.size(); i++)
-    {
-        cout << "discount factor for " + to_string(maturities[i]) + "D: " + to_string((*dfs)[i]) << endl;
-    }
-
-    delete dfs;
-
-    // get forward rates
-    vector<float> * fwds = new vector<float>();
-    fwds = crv->get_fwd_rate(scn_tenors, "ACT_365");
-
-    for (int i = 0; i < maturities.size() - 1; i++)
-    {
-        cout << "forward rate for " + to_string(maturities[i]) + "D - " + to_string(maturities[i + 1]) + "D: " + to_string((*fwds)[i]) << endl;
-    }
-
-    delete fwds;
-
-    // get par rates
-    int step = 3;
-    vector<float> * pars = new vector<float>();
-    vector <float> nominals = {100., 100., 100., 100., 100.};
-    pars = crv->get_par_rate(scn_tenors, nominals, step, "ACT_365");
-
-    for (int i = 0; i < maturities.size() - step; i++)
-    {
-        cout << "par rate for " + to_string(maturities[i]) + "D - " + to_string(maturities[i + step]) + "D: " + to_string((*pars)[i]) << endl;
-    }
-
-    delete pars;
 
     // everything OK
     return 0;

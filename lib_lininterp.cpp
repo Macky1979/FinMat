@@ -1,7 +1,6 @@
 #include <iostream>
+#include <vector>
 #include "lib_lininterp.h"
-
-using namespace std;
 
 /*
  * OBJECT CONSTRUCTORS
@@ -16,7 +15,7 @@ myLinInterp::myLinInterp(const std::vector<float> &_x, const std::vector<float> 
     // check that arrays size are the same, e.g. there is one y for each x
     if (x.size() != y.size())
     {
-        throw invalid_argument((string)__func__ + ": Vector x and y must of the same size!");
+        throw std::invalid_argument((std::string)__func__ + ": Vector x and y must of the same size!");
     }
 }
 
@@ -27,7 +26,7 @@ myLinInterp::myLinInterp(const std::vector<float> &_x, const std::vector<float> 
 std::vector<float> * myLinInterp::eval(const std::vector<float> &_X)
 {
     // create vector to hold interpolated values
-    vector<float> * Y = new vector<float>();
+    std::vector<float> * Y = new std::vector<float>();
 
     // X vector for which Y vector is to be interpolated
     X = _X;
