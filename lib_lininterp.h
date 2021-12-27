@@ -9,17 +9,15 @@
 #include <iostream>
 #include "lib_lininterp.h"
 
-using namespace std;
-
 int main()
 {
     // pointer to vector holding the interpolated figures
-    vector<float> * Y = new vector<float>();
+    std::vector<double> * Y = new std::vector<double>();
 
     // x and y are supposed to be orderd in ascending order
-    vector<float> x = {0, 1, 2, 3, 4, 5}; 
-    vector<float> y = {0, 1, 3, 5, 6, 7};
-    vector<float> X = {-1, 1, 2, 8, 2.5, 1./3};
+    std::vector<double> x = {0, 1, 2, 3, 4, 5}; 
+    std::vector<double> y = {0, 1, 3, 5, 6, 7};
+    std::vector<double> X = {-1, 1, 2, 8, 2.5, 1./3};
 
     // create interpolation object and interpolate
     myLinInterp interp(x, y);
@@ -28,7 +26,7 @@ int main()
     // print out results
     for (int i = 0; i < Y->size(); i++)
     {
-        cout << "Y[" + to_string(i) + "] = " + to_string((*Y)[i]) << std::endl;
+        std::cout << "Y[" + std::to_string(i) + "] = " + std::to_string((*Y)[i]) << std::endl;
     }
 
     // delete pointer
@@ -44,18 +42,18 @@ class myLinInterp
 {
     private:
         // variables
-        std::vector<float> x;
-        std::vector<float> y;
-        std::vector<float> X;
-        std::vector<float> Y;
+        std::vector<double> x;
+        std::vector<double> y;
+        std::vector<double> X;
+        std::vector<double> Y;
 
     public:
         // object constructors
-        myLinInterp(const std::vector<float> &_x, const std::vector<float> &_y);
+        myLinInterp(const std::vector<double> &_x, const std::vector<double> &_y);
 
         // object destructor
         ~myLinInterp(){};
 
         // object function declarations
-        std::vector<float> * eval(const std::vector<float> &_X);
+        std::vector<double> * eval(const std::vector<double> &_X);
 };

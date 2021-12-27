@@ -3,6 +3,7 @@
 #include <vector>
 #include <sqlite3.h>
 #include <memory>
+#include "lib_aux.h"
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 #include "fin_fx.h"
@@ -10,6 +11,8 @@
 
 int main()
 {
+    std::cout << get_timestamp() + " - loading data..." << std::endl;
+
     // variables
     const char * db_file_nm = "data/finmat.db";
     std::string sql_file_nm = "data/finmat.sql";
@@ -60,6 +63,9 @@ int main()
     sql = read_sql(sql_file_nm, "bnd_data");
     db.exec(sql);
 
+    sql = read_sql(sql_file_nm, "bnd_npv");
+    db.exec(sql);
+
     // delete old content in the tables
     db.exec("DELETE FROM cnty_def;");
     db.exec("DELETE FROM ccy_def;");
@@ -69,6 +75,7 @@ int main()
     db.exec("DELETE FROM crv_def;");
     db.exec("DELETE FROM crv_data;");
     db.exec("DELETE FROM bnd_data;");
+    db.exec("DELETE FROM bnd_npv;");
 
     // create dataframes from .csv files and store them into database
     rslt->read(cnty_def, sep, quotes);
@@ -110,18 +117,42 @@ int main()
     // vacuum SQLite database file to avoid its excessive growth
     db.vacuum();
 
+    std::cout << get_timestamp() + " - initiating curves and FX rates..." << std::endl;
+
     // load FX rates
     myFx fx = myFx(db, sql_file_nm);
 
     // load all curves
     myCurves crvs = myCurves(db, sql_file_nm, calc_date);
 
-    // load bonds 
-    myBonds bnds = myBonds(db, sql_file_nm, calc_date);
+    std::cout << get_timestamp() + " - initiating bonds..." << std::endl;
+
+    // define entity and portfolio
+    std::string ent_nm = "kbc";
+    std::string ptf = "bnd";
+
+    // load bonds
+    myBonds bnds = myBonds(db, "SELECT * FROM bnd_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
+
+    std::cout << get_timestamp() + " - evaluating bonds..." << std::endl;
+
+    // evaluate bonds
+    int scn_no = 1;
+    std::string ref_ccy_nm = "EUR";
+    bnds.calc_npv(scn_no, crvs, fx, ref_ccy_nm);
+
+    std::cout << get_timestamp() + " - storing NPV into SQLite database file..." << std::endl;
+
+    // store results
+    bnds.write_npv(db, scn_no, ent_nm, ptf);
+
+    std::cout << get_timestamp() + " - closing SQLite database file..." << std::endl;
 
     // close connection to SQLite database file
     db.close();
 
+    std::cout << get_timestamp() + " - done!" << std::endl;
+    
     // everything OK
     return 0;
 }

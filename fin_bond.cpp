@@ -3,7 +3,9 @@
 #include <tuple>
 #include <map>
 #include <vector>
+#include <memory>
 #include "lib_date.h"
+#include "lib_dataframe.h"
 #include "fin_curve.h"
 #include "fin_fx.h"
 #include "fin_date.h"
@@ -13,61 +15,34 @@
  * AUXILIARY FUNCTIONS
  */
 
-// return position index of event.date in std::vector events which is the closest to date
-static int get_nearest_date_idx(const myDate &date, const std::vector<event> &events)
+// extract vector of dates from vector of events
+std::vector<myDate> extract_dates_from_events(const std::vector<event> &events, const std::string &type)
 {
-    // distances 
-    int idx1_dist;
-    int idx2_dist;
+    // create pointer to vector of dates
+    std::vector<myDate> dates;
+ 
+    // reserve memory
+    dates.reserve(events.size());
 
-    // check the first event in events; we assume that the events are sorted chronologically
-    if (date.get_days_no() <= events[0].date.get_days_no())
+    // for event by event and extract the date
+    for (int idx = 0; idx < events.size(); idx++)
     {
-        return 0;
-    }
-
-    // check the last event in events; we assume that the events are sorted chronologically
-    if (date.get_days_no() >= events[events.size() - 1].date.get_days_no())
-    {
-        return events.size() - 1;
-    }
-
-    // go event by event in the std::vector; we assume that the events are sorted chronologically
-    for (int idx = 0; idx < events.size() - 1; idx++)
-    {
-        // check the match on the current position index
-        if (date.get_days_no() == events[idx].date.get_days_no())
+        if (type.compare("date_begin") == 0)
         {
-            return idx;
+            dates.emplace_back(events[idx].date_begin);
         }
-        
-        // check the match on the next position index
-        if (date.get_days_no() == events[idx + 1].date.get_days_no())
+        else if (type.compare("date_end") == 0)
         {
-            return idx + 1;
+            dates.emplace_back(events[idx].date_end);
         }
-
-        // check the current interval defined by position indices idx and idx + 1
-        idx1_dist = date.get_days_no() - events[idx].date.get_days_no();
-        idx2_dist = date.get_days_no() - events[idx + 1].date.get_days_no();
-        if ((idx1_dist > 0) & (idx2_dist < 0)) // date is within the interval
+        else
         {
-            // return the nearest index
-            if (idx1_dist < -idx2_dist)
-            {
-                return idx;
-            }
-            else
-            {
-                return idx + 1;
-            }
+            throw std::runtime_error((std::string)__func__ + ": " + type + " is not supported type!");
         }
     }
 
-    // this part of the code should not be hit (return should occur earlier)
-    // but I have added it to prevent compiler from complaining about
-    // missing return statement
-    return 0;
+    // return the vector with extracted dates
+    return dates;
 }
 
 /*
@@ -85,6 +60,12 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
     // auxiliary variables
     std::string aux;
     myDate date_aux;
+    std::vector<myDate> event_dates;
+    std::vector<myDate> begin_cpn_dates;
+    std::vector<myDate> end_cpn_dates;
+
+    // reserve memory to avoid memory resize
+    this->info.reserve(rslt->tbl.values.size());
 
     // go bond by bond
     for (int bnd_idx = 0; bnd_idx < rslt->tbl.values.size(); bnd_idx++)
@@ -101,31 +82,41 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             // contract id
             bnd.contract_id = rslt->tbl.values[bnd_idx][2];
 
+            // issuer id
+            bnd.issuer_id = rslt->tbl.values[bnd_idx][3];
+
             // portfolio
-            bnd.ptf = rslt->tbl.values[bnd_idx][3];
+            bnd.ptf = rslt->tbl.values[bnd_idx][4];
 
             // account
-            bnd.account = rslt->tbl.values[bnd_idx][4];
+            bnd.account = rslt->tbl.values[bnd_idx][5];
 
             // bond ISIN
-            bnd.isin = rslt->tbl.values[bnd_idx][5];
+            bnd.isin = rslt->tbl.values[bnd_idx][6];
 
             // comments
-            bnd.comments = rslt->tbl.values[bnd_idx][6];
+            bnd.comments = rslt->tbl.values[bnd_idx][7];
 
             // bond type, e.g. PAM, RGM, ZCB
-            bnd.bnd_type = rslt->tbl.values[bnd_idx][7];
+            bnd.bnd_type = rslt->tbl.values[bnd_idx][8];
 
-            // field indicating if the bond is fixed or floating
-            bnd.is_fixed = rslt->tbl.values[bnd_idx][8].compare("1") == 0 ? true : false;
-
-            // fixing type (forward rate vs. par-rate) for a floating bond
+            // fixing type - "fwd" and "par" for a floating bond vs.
+            // "fix" for a fixed bond
             aux = rslt->tbl.values[bnd_idx][9];
-            if ((aux.compare("fwd") != 0) && (aux.compare("par") != 0) && (aux.compare("") != 0))
+            if ((aux.compare("fwd") != 0) && (aux.compare("par") != 0) && (aux.compare("fix") != 0))
             {
                 bnd.wrn_msg += "unsupported fixing type " + aux + ";";
-                bnd.fix_type = "";
+                bnd.fix_type = "fix";
             }
+            else if (aux.compare("fix") == 0)
+            {
+                bnd.is_fixed = true;
+            }
+            else
+            {
+                bnd.is_fixed = false;
+            }
+            bnd.fix_type = aux;
 
             // bond rating
             bnd.rtg = rslt->tbl.values[bnd_idx][10];
@@ -169,7 +160,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 bnd.acc_int = 0.0;
                 bnd.cpn_rate = 0.0;
                 bnd.cpn_freq = "";
-                bnd.fix_type = "";
+                bnd.fix_type = "fix";
                 bnd.first_cpn_date = bnd.maturity_date;
             }
             else // coupon rate provided
@@ -187,7 +178,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 bnd.acc_int = 0.0;
                 bnd.cpn_rate = 0.0;
                 bnd.cpn_freq = "";
-                bnd.fix_type = "";
+                bnd.fix_type = "fix";
                 bnd.first_cpn_date = bnd.maturity_date;
             }
             else // the first coupon date provided
@@ -205,7 +196,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 bnd.acc_int = 0.0;
                 bnd.cpn_rate = 0.0;
                 bnd.cpn_freq = "";
-                bnd.fix_type = "";
+                bnd.fix_type = "fix";
                 bnd.first_cpn_date = bnd.maturity_date;
             }
             else if ((aux.compare("") != 0) && (bnd.cpn_rate == 0)) // copoun frequency provided for zero coupon rate
@@ -216,7 +207,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 bnd.acc_int = 0.0;
                 bnd.cpn_rate = 0.0;
                 bnd.cpn_freq = "";
-                bnd.fix_type = "";
+                bnd.fix_type = "fix";
                 bnd.first_cpn_date = bnd.maturity_date;
             }
             else // coupon frequency provided for non-zero coupon rate
@@ -233,7 +224,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     bnd.wrn_msg += "first fixing date not provided for a floating bond;";
                     bnd.is_fixed = true;
                     bnd.fix_freq = "";
-                    bnd.fix_type = "";
+                    bnd.fix_type = "fix";
                 }
             }
             else // fixing date provided
@@ -257,7 +248,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     bnd.wrn_msg += "fixing frequency not provided a floating bond";
                     bnd.is_fixed = true;
                     bnd.fix_freq = "";
-                    bnd.fix_type = "";
+                    bnd.fix_type = "fix";
                 }
                 else // fixed bond
                 {
@@ -387,7 +378,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     bnd.wrn_msg += "repricing curve not provided for a floating bond;";
                     bnd.is_fixed = true;
                     bnd.fix_freq = "";
-                    bnd.fix_type = "";
+                    bnd.fix_type = "fix";
                 }
                 bnd.crv_fwd = "";
             }
@@ -500,12 +491,11 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 }
             }
 
-        // generate std::vector of events
+        // generate vector of events
 
             // variables containing dates
             myDate date1;
             myDate date2;
-            std::vector<myDate> * event_dates = new std::vector<myDate>;
 
             // events
             event evnt;
@@ -514,10 +504,11 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             // position index
             int pos_idx;
 
-            // date format, which is used to store date std::string in object myDate
+            // date format, which is used to store date string in object myDate
             std::string date_format = "yyyymmdd";
 
-            // find begining of the first active copoun period a create std::vector coupon events; we assume that all other events occur on coupon payment dates
+            // find date of the first copoun payment and a create vector coupon events;
+            // we assume that all other events occur on coupon payment dates
             if (bnd.cpn_freq.compare("") != 0) // coupon bond
             {
                 // iterate until you find the first coupon period that does not preceed calculation date
@@ -533,34 +524,35 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 // date1 represents the beginning date of such coupon period => we generate coupon dates till maturity
                 event_dates = create_date_serie(date1.get_date_str(), bnd.maturity_date.get_date_str(), bnd.cpn_freq, date_format);     
 
-                // create a std::vector of events based on coupon dates
-                for (int idx = 0; idx < event_dates->size(); idx++)
+                // create a vector of events based on coupon dates
+                for (int idx = 0; idx < event_dates.size(); idx++)
                 {
-                    evnt.is_cpn_payment = true;
-                    date1 = (*event_dates)[idx];
+                    date1 = event_dates[idx];
                     date2 = date1;
                     date1.remove(bnd.cpn_freq);
-                    evnt.date = date2;
+                    evnt.date_begin = date1; // beging of coupon period
+                    evnt.date_end = date2; // end of coupon period => date of coupon payment
                     evnt.cpn_year_frac = day_count_method(date1, date2, bnd.dcm);
+                    evnt.is_cpn_payment = true;
 
                     // indicated that coupon payment is fixed and therefore
                     // could be calculated without a scenario knowledge
                     if (bnd.is_fixed)
                     {
-                        evnt.is_cpn_fix = true;
+                        evnt.is_cpn_fixed = true;
                     }
                     else
                     {
                         // even a floating bond has its first coupon payment
                         // fixed if it is not a forward contract
-                        if (evnt.date.get_days_no() <= calc_date.get_days_no())
+                        if (evnt.date_begin.get_days_no() < bnd.first_fix_date.get_days_no())
                         {
-                            evnt.is_cpn_fix = true;
+                            evnt.is_cpn_fixed = true;
                         }
                         // coupon payments in fugure
                         else
                         {
-                            evnt.is_cpn_fix = false;
+                            evnt.is_cpn_fixed = false;
                         }
                     }
 
@@ -569,14 +561,19 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             }
             else // zero coupon bond
             {
-                evnt.date = bnd.maturity_date;
-                evnt.is_cpn_payment = true;
+                evnt.date_begin = bnd.maturity_date;
+                evnt.date_end = bnd.maturity_date;
                 evnt.cpn_year_frac = 0.0;
-                evnt.is_cpn_fix = true;
+                evnt.is_cpn_payment = true;
+                evnt.is_cpn_fixed = true;
                 events.emplace_back(evnt);
             }
 
-            // add amortization information to events std::vector
+            // extract begin and end dates of the coupon periods
+            begin_cpn_dates = extract_dates_from_events(events, "date_begin");
+            end_cpn_dates = extract_dates_from_events(events, "date_end");
+
+            // add amortization information to events vector
             if (bnd.amort_freq.compare("") != 0)
             {
                 // iterate until you find the first amortization date after calculation date
@@ -590,40 +587,53 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 event_dates = create_date_serie(date1.get_date_str(), bnd.maturity_date.get_date_str(), bnd.amort_freq, date_format);
 
                 // go amortization date by amortization date and assign it the nearest coupon date; we assume that amortizations happen on coupon dates
-                for (int idx = 0; idx < event_dates->size(); idx++)
+                for (int idx = 0; idx < event_dates.size(); idx++)
                 {
-                    pos_idx = get_nearest_date_idx((*event_dates)[idx], events);
-                    events[idx].is_amort = true;
-                }
-
-                // add nominal information; we assume that bnd.nominal contains the current bond nominal (i.e. taking potential previous amortizations
-                // into account)
-                for (int idx = 0; idx < events.size(); idx++)
-                {
-                    // add nominal
-                    if (idx == 0) // first coupon date => use the current bond nominal
+                    // we assign amortization flag based on begining coupon date
+                    if (event_dates[idx].get_date_int() < bnd.maturity_date.get_date_int())
                     {
-                        events[idx].nominal = bnd.nominal;
-                    }
-                    else // on the following coupon dates we use nominal from the previous coupon date
-                    {
-                        events[idx].nominal = events[idx - 1].nominal;
-                    }
-
-                    if (events[idx].is_amort)
-                    {
-                        events[idx].nominal -= bnd.amort;
-                        events[idx].amort_payment = bnd.amort;
-                    }
-                    else
-                    {
-                        events[idx].amort_payment = 0.0;
+                        pos_idx = get_nearest_idx(event_dates[idx], end_cpn_dates, "abs");
+                        events[pos_idx].amort_flg = true;
                     }
                 }
             }
 
+            // add nominal information; we assume that bnd.nominal contains the current bond nominal (i.e. taking potential previous amortizations
+            // into account)
+            for (int idx = 0; idx < events.size(); idx++)
+            {
+                // set amortization payment to zero by default
+                events[idx].amort_payment = 0.0;
+
+                // set nominal
+                if (idx == 0) // first coupon date => use the current bond nominal
+                {
+                    events[idx].nominal_begin = bnd.nominal;
+                    events[idx].nominal_end = bnd.nominal;
+                }
+                else // on the following coupon dates we use nominal from the previous coupon date
+                {
+                    events[idx].nominal_begin = events[idx - 1].nominal_end;
+                    events[idx].nominal_end = events[idx - 1].nominal_end;
+                }
+
+                // adjust for amortization payment
+                if (events[idx].amort_flg)
+                {
+                    events[idx].nominal_end -= bnd.amort;
+                    events[idx].amort_payment = bnd.amort;
+                }
+
+                // the last coupon payment is accompanied by full nominal repayment
+                if (idx == events.size() - 1)
+                {
+                    events[idx].amort_payment = events[idx].nominal_begin;
+                    events[idx].nominal_end = 0.0;
+                }
+            }
+
             // add repricing information
-            if (bnd.cpn_freq.compare("") != 0)
+            if (bnd.fix_freq.compare("") != 0)
             {
                 // iterate until you find the first repricing date after calculation date
                 date1 = bnd.first_fix_date;
@@ -632,52 +642,63 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     date1.add(bnd.fix_freq);
                 }
 
-                // date1 is the first fixing date => we generate repricing dates till maturity
+                // date1 is the first repricing date => we generate repricing dates till maturity
                 event_dates = create_date_serie(date1.get_date_str(), bnd.maturity_date.get_date_str(), bnd.fix_freq, date_format);
 
-                // go repricing date by repricing date and assign it the nearest coupon date; we assume that amortizations happen on coupon dates
-                for (int idx = 0; idx < event_dates->size(); idx++)
+                // determine in which coupon periods there will be repricing
+                for (int idx = 0; idx < event_dates.size(); idx++)
                 {
-                    pos_idx = get_nearest_date_idx((*event_dates)[idx], events);
-                    events[idx].is_repricing = true;
+                    // we assign repricing flag based on begining coupon date
+                    if (event_dates[idx].get_date_int() < bnd.maturity_date.get_date_int())
+                    {
+                        pos_idx = get_nearest_idx(event_dates[idx], begin_cpn_dates, "abs");
+                        events[pos_idx].fix_flg = true;
+                    }
                 }
 
                 // repricing dates
-                if (bnd.fix_type.compare("") != 0)
+                if (bnd.fix_type.compare("fix") != 0)
                 {
                     for (int idx = 0; idx < events.size(); idx++)
                     {
-                        // get boundary dates
-                        if (events[idx].is_repricing)
+                        // coupon rate was fixed in the previous coupon period; could occur if
+                        // e.g coupon period is 6M and repricing period is 1Y
+                        if (!events[idx].is_cpn_fixed && !events[idx].fix_flg)
                         {
-                            date1 = events[idx].date;
+                            events[idx].cpn = events[idx - 1].cpn;
+                        }
+                        // determine coupon rate
+                        else if (!events[idx].is_cpn_fixed && events[idx].fix_flg)
+                        {
+                            date1 = events[idx].date_begin;
                             date2 = date1;
                             date2.add(bnd.fix_freq);
-                            pos_idx = get_nearest_date_idx(date2, events);
-                            date2 = events[pos_idx].date; 
-                       }
                        
-                       // forward rate repricing - only the boundary dates
-                       if (bnd.fix_type.compare("fwd") == 0)
-                       {
-                            events[idx].repricing_dates.emplace_back(date1);
-                            events[idx].repricing_dates.emplace_back(date2);
-                       }
-                       // par rate repricing - not only boundary repricing
-                       // dates but also in between coupon dates
-                       else if (bnd.fix_type.compare("par") == 0)
-                       {
-                            for (int idx2; idx2 < events.size(); idx2++)
+                            // forward rate repricing - only the boundary dates
+                            if (bnd.fix_type.compare("fwd") == 0)
                             {
-                                // check that coupon date falls within
-                                // the boundary repricing dates
-                                if ((events[idx2].date.get_days_no() >= date1.get_days_no()) &&
-                                    (events[idx2].date.get_days_no() <= date2.get_days_no()))
-                                {
-                                    events[idx].repricing_dates.emplace_back(events[idx2].date);
-                                }
+                                events[idx].repricing_dates.emplace_back(date1);
+                                events[idx].repricing_dates.emplace_back(date2);
                             }
-                       }
+
+                            // par rate repricing - not only boundary repricing
+                            // dates but also in between coupon dates
+                            else if (bnd.fix_type.compare("par") == 0)
+                            {
+                                for (int idx2 = 0; idx2 < events.size(); idx2++)
+                                {
+                                    // check that coupon date falls within
+                                    // the boundary repricing dates
+                                    if ((events[idx2].date_end.get_days_no() >= date1.get_days_no()) &&
+                                        (events[idx2].date_end.get_days_no() <= date2.get_days_no()))
+                                    {
+                                        events[idx].repricing_dates.emplace_back(events[idx2].date_end);
+                                        events[idx].par_nominals_begin.push_back(events[idx2].nominal_begin);
+                                        events[idx].par_nominals_end.push_back(events[idx2].nominal_end);
+                                    }
+                                }
+                           }
+                        }
                     }
                 }
             }
@@ -685,32 +706,28 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             // calculate fixed cupoun payments and accrued interest
             for (int idx = 0; idx < events.size(); idx++)
             {
-                if (events[idx].is_cpn_fix)
+                if (events[idx].is_cpn_fixed)
                 {
                     // calculate accrued interest for the first coupon payment
                     // if neccessary
                     if (!bnd.is_acc_int && (idx == 0))
                     {
-                        if (events[idx].date.get_days_no() <= calc_date.get_days_no())
+                        if (events[idx].date_begin.get_days_no() <= calc_date.get_days_no())
                         {
                             // year fraction for the first coupon payment
-                            float acc_int_year_frac =
-                                day_count_method(events[idx].date, calc_date, bnd.dcm);
-                            bnd.acc_int =
-                                events[idx].cpn * events[idx].nominal * acc_int_year_frac;
+                            double acc_int_year_frac = day_count_method(events[idx].date_begin, calc_date, bnd.dcm);
+                            bnd.acc_int = bnd.cpn_rate * events[idx].nominal_begin * acc_int_year_frac;
                         }
                         // in case of a forward contract accrued interest is zero
                         else
                         {
                             bnd.acc_int = 0.0;
                         }
+                    }
 
                     // calculate fixed coupon payment
-                    events[idx].is_repricing = false;
-                    events[idx].is_cpn_fix = true;
                     events[idx].cpn = bnd.cpn_rate;
-                    events[idx].cpn_payment =
-                        events[idx].cpn * events[idx].cpn_year_frac * events[idx].nominal;
+                    events[idx].cpn_payment = events[idx].cpn * events[idx].cpn_year_frac * events[idx].nominal_begin;
 
                     // check that the accured interest is not greater than the
                     // first coupon payment; please note we have to take into
@@ -721,7 +738,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                         if (events[idx].cpn > 0.0)
                         {
                             // positive nominal
-                            if (events[idx].nominal > 0.0)
+                            if (events[idx].nominal_begin > 0.0)
                             {
                                 // accrued interest is greater than the
                                 // first coupon payment
@@ -745,7 +762,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                         else
                         {
                             // positive nominal
-                            if (events[idx].nominal > 0.0)
+                            if (events[idx].nominal_begin > 0.0)
                             {
                                 // accrued interest is greater than the
                                 // first coupon payment
@@ -771,15 +788,170 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     events[idx].cf = events[idx].amort_payment + events[idx].cpn_payment;
                 }
             }
+        
+            // add events into bond structure
+            bnd.events = events;
 
-            // delete unused pointers
-            delete event_dates;
+            // add bond to vector of bonds
+            this->info.emplace_back(bnd);
+    
         }
-    }
+
+    // delete unused pointers
+    delete rslt;
 }
 
 /*
  * OBJECT FUNCTIONS
  */
 
+// calculate NPV
+void myBonds::calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm)
+{
+    // variables 
+    std::vector<std::tuple<int, int>> scn_tenors;
 
+    // go bond by bond
+    for (int idx = 0; idx < this->info.size(); idx++)
+    {
+
+        // calculate repricing rates for floating bonds
+        if (!this->info[idx].is_fixed)
+        {
+            // go event by event
+            for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+            {
+                // coupon is already fixed
+                if (this->info[idx].events[idx2].is_cpn_fixed)
+                {
+                    // re-pricing frequency could be of lower frequency than
+                    // coupon frequency => coupon could be paid out every
+                    // 6M but repricing could take place every 1Y => we might
+                    // take fixed coupon from the previous event
+                    if (idx2 > 0)
+                    {
+                        this->info[idx].events[idx2].cpn = this->info[idx].events[idx2 - 1].cpn;
+                    }
+                }
+                // coupon rate is not yet fixed but will be set in line with the previous coupon
+                // period; could occur if e.g coupon period is 6M and repricing period is 1Y
+                else if (!this->info[idx].events[idx2].fix_flg)
+                {
+                    this->info[idx].events[idx2].cpn = this->info[idx].events[idx2 - 1].cpn;
+                }
+                // calculate forward rate / par rate for unfixed coupon rates
+                else
+                {
+                    // prepare vector with scenario number and tenors
+                    scn_tenors.clear();
+                    for (int idx3 = 0; idx3 < this->info[idx].events[idx2].repricing_dates.size(); idx3++)
+                    {
+                        scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[idx].events[idx2].repricing_dates[idx3].get_date_int()));
+                    }
+
+                    // apply forward rate
+                    if (this->info[idx].fix_type.compare("fwd") == 0)
+                    {
+                        // get forward rate
+                        std::vector<double> fwds = crvs.get_fwd_rate(this->info[idx].crv_fwd, scn_tenors, this->info[idx].dcm);
+
+                        // use the forward rate as a coupon rate
+                        this->info[idx].events[idx2].cpn = fwds[0];
+                    }
+                    // apply par-rate
+                    else
+                    {
+                        // get par-rate
+                        int par_step = this->info[idx].events[idx2].repricing_dates.size() - 1;
+                        std::vector<double> pars = crvs.get_par_rate(this->info[idx].crv_fwd, scn_tenors, this->info[idx].events[idx2].par_nominals_begin, this->info[idx].events[idx2].par_nominals_end, par_step, this->info[idx].dcm);
+
+                        // user the par-rate as a coupon rate
+                        this->info[idx].events[idx2].cpn = pars[0];
+                    }
+
+                    // apply multiplier and spread
+                    this->info[idx].events[idx2].cpn = this->info[idx].events[idx2].cpn * this->info[idx].rate_mult + this->info[idx].rate_add;
+                }
+            }
+
+            // calculate coupon payment and cash-flow
+            for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+            {
+                this->info[idx].events[idx2].cpn_payment = this->info[idx].events[idx2].nominal_begin * this->info[idx].events[idx2].cpn * this->info[idx].events[idx2].cpn_year_frac;
+                this->info[idx].events[idx2].cf = this->info[idx].events[idx2].cpn_payment + this->info[idx].events[idx2].amort_payment;
+            }
+        }
+
+        // calculate discount factors and total bond NPV
+        this->info[idx].npv = 0.0;
+        // crv_disc = crvs.crv[this->info[idx].crv_disc]; // bottleneck
+
+        for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+        {
+            // prepare vector with scenario number and tenors
+            std::vector<std::tuple<int, int>> scn_tenors;
+            scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[idx].events[idx2].date_end.get_date_int()));
+            
+            // get discounting factor
+            std::vector<double> dfs = crvs.get_df(this->info[idx].crv_disc, scn_tenors);
+
+            // store discount factor
+            this->info[idx].events[idx2].df = dfs[0];
+
+            // update NPV
+            this->info[idx].npv += this->info[idx].events[idx2].cf * this->info[idx].events[idx2].df;
+
+        }
+
+        // calculate NPV and accured interest in reference currency
+        std::tuple<int, std::string> scn_ccy = std::tuple<int, std::string>(scn_no, ref_ccy_nm);
+        double fx_rate = fx.get_fx(scn_ccy);
+
+        this->info[idx].acc_int_ref_ccy = this->info[idx].acc_int * fx_rate;
+        this->info[idx].npv_ref_ccy = this->info[idx].npv * fx_rate;
+
+    }
+}
+
+// write NPV into SQLite database file
+void myBonds::write_npv(mySQLite &db, const int &scn_no, const std::string &ent_nm, const std::string &ptf)
+{
+    // initiate dataframe structure
+    dataFrame df;
+
+    // add column names
+    df.col_nms = {"scn_no", "ent_nm", "parent_id", "contract_id", "ptf", "acc_int", "npv", "acc_int_ref_ccy", "npv_ref_ccy"};
+
+    // add column data type
+    df.dtypes = {"INT", "CHAR", "CHAR", "CHAR", "CHAR", "FLOAT", "FLOAT", "FLOAT", "FLOAT"};
+    
+    // add values
+    std::vector<std::vector<std::string>> values;
+    std::vector<std::string> bnd;
+
+    for (int idx = 0; idx < this->info.size(); idx++)
+    {
+        bnd.clear();
+        bnd.push_back(std::to_string(scn_no));
+        bnd.push_back(this->info[idx].ent_nm);
+        bnd.push_back(this->info[idx].parent_id);
+        bnd.push_back(this->info[idx].contract_id);
+        bnd.push_back(this->info[idx].ptf);
+        bnd.push_back(std::to_string(this->info[idx].acc_int));
+        bnd.push_back(std::to_string(this->info[idx].npv));
+        bnd.push_back(std::to_string(this->info[idx].acc_int_ref_ccy));
+        bnd.push_back(std::to_string(this->info[idx].npv_ref_ccy));
+        values.push_back(bnd);
+    }
+    df.values = values;
+
+    // create dataframe object
+    myDataFrame tbl = myDataFrame(df);
+
+    // delete old data based on scenario number, entity name and portfolio
+    std::string sql = "DELETE FROM bnd_npv WHERE scn_no = " + std::to_string(scn_no) + " AND ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';";
+    db.exec(sql);
+
+    // write dataframe into SQLite database file
+    db.upload_tbl(tbl, "bnd_npv", false);
+}

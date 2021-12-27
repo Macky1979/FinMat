@@ -6,7 +6,7 @@
  * OBJECT CONSTRUCTORS
  */
 
-myLinInterp::myLinInterp(const std::vector<float> &_x, const std::vector<float> &_y)
+myLinInterp::myLinInterp(const std::vector<double> &_x, const std::vector<double> &_y)
 {
     // x and y are supposed to be orderd in ascending order; the assumption is not checked
     x = _x;
@@ -23,10 +23,10 @@ myLinInterp::myLinInterp(const std::vector<float> &_x, const std::vector<float> 
  * OBJECT FUNCTIONS
  */
 
-std::vector<float> * myLinInterp::eval(const std::vector<float> &_X)
+std::vector<double> * myLinInterp::eval(const std::vector<double> &_X)
 {
     // create vector to hold interpolated values
-    std::vector<float> * Y = new std::vector<float>();
+    std::vector<double> * Y = new std::vector<double>();
 
     // X vector for which Y vector is to be interpolated
     X = _X;

@@ -15,8 +15,6 @@
 #include "lib_sqlite.h"
 #include "lib_aux.h"
 
-using namespace std;
-
 void print_df(myDataFrame * df)
 {
     // print result of SQL query
@@ -24,9 +22,9 @@ void print_df(myDataFrame * df)
     {
         for (int j = 0; j < (*df).tbl.values[0].size(); j++)
         {
-            cout << (*df).tbl.values[i][j] << " ";
+            std::cout << (*df).tbl.values[i][j] << " ";
         }
-        cout << '\n';
+        std::cout << '\n';
     }
 }
 
@@ -34,8 +32,8 @@ int main()
 {
     // variables
     const char * db_file_nm = "data/cities.db";
-    string sql_file_nm = "data/cities.sql";
-    string sql;
+    std::string sql_file_nm = "data/cities.sql";
+    std::string sql;
     myDataFrame * rslt = new myDataFrame();
     bool read_only;
     int wait_max_seconds = 10;
@@ -103,10 +101,10 @@ int main()
 
     // demonstrate function replace_in_sql()
     sql = "SELECT ##col_nm## FROM cities;";
-    string replace_what = "##col_nm##";
-    string replace_with = "cities";
+    std::string replace_what = "##col_nm##";
+    std::string replace_with = "cities";
     sql = replace_in_sql(sql, replace_what, replace_with);
-    cout << sql << endl;
+    std::cout << sql << std::endl;
 
     // everything OK
     return 0;

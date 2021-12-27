@@ -102,13 +102,12 @@ CREATE TABLE IF NOT EXISTS bnd_data
     ent_nm VARCHAR(5) NOT NULL,
     parent_id VARCHAR(10) NOT NULL,
     contract_id VARCHAR(10) NOT NULL,
-    ptf VARCHAR(10),
     issuer_id VARCHAR(15),
+    ptf VARCHAR(10) NOT NULL,
     account VARCHAR(50),
     isin VARCHAR(15),
     comments VARCHAR(256),
     bnd_type VARCHAR(10),
-    is_fixed INT NOT NULL CHECK (is_fixed = 0 OR is_fixed = 1),
     fix_type VARCHAR(5),
     rtg VARCHAR(5),
     ccy_nm CHAR(3) NOT NULL,
@@ -125,7 +124,7 @@ CREATE TABLE IF NOT EXISTS bnd_data
     first_amort_date INT,
     amort_freq VARCHAR(5),
     amort FLOAT,
-    rate_mult FLOAT CHECK (rate_mult >= 0.0),
+    rate_mult FLOAT,
     rate_add FLOAT,
     crv_disc VARCHAR(20) NOT NULL,
     crv_fwd VARCHAR(20),
@@ -135,20 +134,23 @@ CREATE TABLE IF NOT EXISTS bnd_data
     FOREIGN KEY (fix_freq) REFERENCES freq_def(freq),
     FOREIGN KEY (amort_freq) REFERENCES freq_def(freq),
     FOREIGN KEY (crv_disc) REFERENCES crv_def(crv_nm),
-    UNIQUE (ent_nm, parent_id, contract_id)
+    UNIQUE (ent_nm, parent_id, contract_id, ptf)
 );
 
 ###!bnd_npv - table holding risk measures for bonds
 CREATE TABLE IF NOT EXISTS bnd_npv
 (
+    scn_no INT NOT NULL,
     ent_nm VARCHAR(5) NOT NULL,
     parent_id VARCHAR(10) NOT NULL,
     contract_id VARCHAR(10) NOT NULL,
+    ptf  VARCHAR(10) NOT NULL,
     acc_int FLOAT NOT NULL,
     npv FLOAT NOT NULL,
     acc_int_ref_ccy FLOAT NOT NULL,
     npv_ref_ccy FLOAT NOT NULL,
-    FOREIGN KEY (ent_nm, parent_id, contract_id) REFERENCES bnd_def(ent_nm, parent_id, contract_id)
+    FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES bnd_def(ent_nm, parent_id, contract_id, ptf)
+    UNIQUE (scn_no, ent_nm, parent_id, contract_id, ptf)
 )
 
 ###!

@@ -1,8 +1,10 @@
 #include <string>
 #include <iostream>
+#include <cmath>
 #include <tuple>
 #include <vector>
 #include <memory>
+#include <limits>
 #include "lib_date.h"
 
 /*
@@ -145,19 +147,19 @@ static std::tuple<int, std::string> decompose_freq(const std::string &freq)
  }
 
 // create a std::vector of dates from start date to end date using time step of a given frequency
-std::vector<myDate> * create_date_serie(const std::string &date_str_begin, const std::string &date_str_end, const std::string &date_freq, const std::string &date_format)
+std::vector<myDate> create_date_serie(const std::string &date_str_begin, const std::string &date_str_end, const std::string &date_freq, const std::string &date_format)
 {
     // create std::vector to hold date serie
-    std::vector<myDate> * date_serie = new std::vector<myDate>();
+    std::vector<myDate> date_serie;
 
     //create date end and current date objects
     myDate date_end(date_str_end, date_format);
     myDate date_current(date_str_begin, date_format);
 
     // create date series
-    while (date_current.get_date_int() < date_end.get_date_int())
+    while (date_current.get_date_int() <= date_end.get_date_int())
     {
-        (*date_serie).push_back(date_current);
+        date_serie.push_back(date_current);
         date_current.add(date_freq);
     }
 
@@ -165,13 +167,17 @@ std::vector<myDate> * create_date_serie(const std::string &date_str_begin, const
     return date_serie;
 }
 
-// convert date frequency std::string into approximate year fraction; could
+// convert date frequency string into approximate year fraction; could
 // be used to compare individual date frequencies
-float eval_freq(const std::string &freq)
+double eval_freq(const std::string &freq)
 {
+    // split frequency string into number of frequency units and frequency type
     int freq_no;
     std::string freq_type;
+    std::tie(freq_no, freq_type) = decompose_freq(freq);   
 
+    // calculate approximate year fraction representing given frequency
+    // string
     if (freq_type.compare("D") == 0)
     {
         return freq_no / 365.25;
@@ -188,6 +194,78 @@ float eval_freq(const std::string &freq)
     {
         throw std::runtime_error((std::string)__func__ + ": unsupported date frequency type " + freq_type + "!");
     }
+}
+
+// get index of the nearest date from the vector of dates; we assume that
+// the dates in vector are sorted in ascending order
+int get_nearest_idx(const myDate &date, const std::vector<myDate> &dates, const std::string &type)
+{
+    // varibles to hold distance
+    long dist = std::numeric_limits<long>::max();
+    long nearest_dist = std::numeric_limits<long>::max();
+
+    // variable to hold the nearest index
+    int nearest_idx = std::numeric_limits<int>::max();
+
+    // go through the dates in the vector
+    for (int idx = 0; idx < dates.size(); idx++)
+    {
+        // calculate distance between dates in number of days
+        dist = date.get_days_no() - dates[idx].get_days_no();
+        
+        if (type.compare("abs") == 0)
+        {
+            dist = std::abs(dist);
+        }
+        else if (type.compare("smaller") == 0)
+        {
+            if (dist <= 0)
+            {
+                dist *= -1;
+            }
+            else
+            {
+                dist = std::numeric_limits<long>::max();
+            }
+        }
+        else if (type.compare("larger") == 0)
+        {
+            if (dist < 0)
+            {
+                dist = std::numeric_limits<long>::max();
+            }
+        }
+        else
+        {
+            throw std::runtime_error((std::string)__func__ + ": " + type + " is not supported type!");
+        }
+        
+        // the first loop pass
+        if (idx == 0)
+        {
+            nearest_idx = idx;
+            nearest_dist = dist;
+        }
+        // other loop passes
+        else
+        {
+            if (dist < nearest_dist)
+            {
+                nearest_idx = idx;
+                nearest_dist = dist;
+            }
+        }
+    }
+
+    // check that the nearest date from the vector was indeed found (does not
+    // have to be the case for "smaller" and "larger" search type)
+    if (nearest_idx == std::numeric_limits<int>::max())
+    {
+        throw std::runtime_error((std::string)__func__ + ": No nearest date found using search type " + type + "!");
+    }
+
+    // return index of the nearest date from the vector
+    return nearest_idx;
 }
 
 /*

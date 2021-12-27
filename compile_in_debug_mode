@@ -1,3 +1,0 @@
-echo $""
-echo $"COMPILING C++ CODE IN A DEBUG MODE..."
-/usr/bin/g++ -fdiagnostics-color=always -g *.cpp -o ~/Documents/Programming/C++/FinMat/main -I ~/Documents/Programming/C++/sqlite_3.36.0/ -l sqlite3

@@ -3,14 +3,14 @@
 #include "fin_date.h"
 
 // calculate year fractions for family of 30/360 methods
-float calc_year_fraction(const int &day1, const int &month1, const int &year1, const int &day2, const int &month2, const int &year2)
+double calc_year_fraction(const int &day1, const int &month1, const int &year1, const int &day2, const int &month2, const int &year2)
 {
         // calculate year fraction
         return (360. * (year2 - year1) + 30. * (month2 - month1) + (day2 - day1)) / 360.;
 }
 
 // implementation of day count method; see https://en.wikipedia.org/wiki/Day_count_convention
-float day_count_method(const myDate &date1, const myDate &date2, const std::string &dcm)
+double day_count_method(const myDate &date1, const myDate &date2, const std::string &dcm)
 {
     // variables
     int day1;
@@ -19,7 +19,7 @@ float day_count_method(const myDate &date1, const myDate &date2, const std::stri
     int month2;
     int year1;
     int year2;
-    float year_fraction;
+    double year_fraction;
     bool last_february_day1;
     bool last_february_day2;
 
@@ -139,8 +139,8 @@ float day_count_method(const myDate &date1, const myDate &date2, const std::stri
         else
         {   
             // auxiliary variables
-            float year_fraction1_aux;
-            float year_fraction2_aux;
+            double year_fraction1_aux;
+            double year_fraction2_aux;
 
             // create auxiliary dates
             myDate date1_aux = myDate(date1.get_year() * 10000 + 1231);

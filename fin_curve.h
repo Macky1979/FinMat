@@ -38,6 +38,8 @@ int main()
     bool read_only;
     int wait_max_seconds = 10;
     bool delete_old_data = false;
+    std::string crv_nm = "INTERBCRV.EUR";
+    int scn_no = 1;
 
     // create SQLite object and open connection to SQLite database file in read-write mode
     read_only = false;
@@ -113,66 +115,51 @@ int main()
     // load all curves
     myCurves crvs = myCurves(db, sql_file_nm, calc_date);
 
-    // extract INTERBCRV.EUR curve
-    myCurve * crv = crvs.get_crv("INTERBCRV.EUR");
-
     // close connection to SQLite database file
     db.close();
 
     // prepare tenors
     std::vector<std::tuple<int, int>> scn_tenors;
     std::vector <int> maturities = {20220603, 20221203, 20230605, 20231203, 20240603};
-    int scn_no = 1;
     for (int i = 0; i < maturities.size(); i++)
     {
         scn_tenors.push_back(std::tuple<int, int>(scn_no, maturities[i]));
     }
 
     // get zero rates
-    std::vector<float> * zeros = new std::vector<float>();
-    zeros = crv->get_zero_rate(scn_tenors);
+    std::vector<double> zeros = crvs.get_zero_rate(crv_nm, scn_tenors);
 
     for (int i = 0; i < maturities.size(); i++)
     {
-        std::cout << "zero rate for " + std::to_string(maturities[i]) + "D: " + std::to_string((*zeros)[i]) << std::endl;
+        std::cout << "zero rate for " + std::to_string(maturities[i]) + ": " + std::to_string(zeros[i]) << std::endl;
     }
-
-    delete zeros;   
 
     // get discount factors
-    std::vector<float> * dfs = new std::vector<float>();
-    dfs = crv->get_df(scn_tenors);
+    std::vector<double> dfs = crvs.get_df(crv_nm, scn_tenors);
 
     for (int i = 0; i < maturities.size(); i++)
     {
-        std::cout << "discount factor for " + std::to_string(maturities[i]) + "D: " + std::to_string((*dfs)[i]) << std::endl;
+        std::cout << "discount factor for " + std::to_string(maturities[i]) + ": " + std::to_string(dfs[i]) << std::endl;
     }
 
-    delete dfs;
-
     // get forward rates
-    std::vector<float> * fwds = new std::vector<float>();
-    fwds = crv->get_fwd_rate(scn_tenors, "ACT_365");
+    std::vector<double> fwds = crvs.get_fwd_rate(crv_nm, scn_tenors, "ACT_365");
 
     for (int i = 0; i < maturities.size() - 1; i++)
     {
-        std::cout << "forward rate for " + std::to_string(maturities[i]) + "D - " + std::to_string(maturities[i + 1]) + "D: " + std::to_string((*fwds)[i]) << std::endl;
+        std::cout << "forward rate for " + std::to_string(maturities[i]) + " - " + std::to_string(maturities[i + 1]) + ": " + std::to_string(fwds[i]) << std::endl;
     }
-
-    delete fwds;
 
     // get par rates
     int step = 3;
-    std::vector<float> * pars = new std::vector<float>();
-    std::vector <float> nominals = {100., 100., 100., 100., 100.};
-    pars = crv->get_par_rate(scn_tenors, nominals, step, "ACT_365");
+    std::vector <double> begin_nominals = {100., 100., 100., 100., 100.};
+    std::vector <double> end_nominals = {100., 100., 100., 100., 100.};
+    std::vector<double> pars = crvs.get_par_rate(crv_nm, scn_tenors, begin_nominals, end_nominals, step, "ACT_365");
 
     for (int i = 0; i < maturities.size() - step; i++)
     {
-        std::cout << "par rate for " + std::to_string(maturities[i]) + "D - " + std::to_string(maturities[i + step]) + "D: " + std::to_string((*pars)[i]) << std::endl;
+        std::cout << "par rate for " + std::to_string(maturities[i]) + " - " + std::to_string(maturities[i + step]) + ": " + std::to_string(pars[i]) << std::endl;
     }
-
-    delete pars;
 
     // everything OK
     return 0;
@@ -184,12 +171,12 @@ struct tenor_def
 {
     myDate tenor_date;
     int tenor;
-    float rate;
-    float year_frac;
-    float year_frac_aux1;
-    float year_frac_aux2;
-    float df;
-    float zero_rate;
+    double rate;
+    double year_frac;
+    double year_frac_aux1;
+    double year_frac_aux2;
+    double df;
+    double zero_rate;
 };
 
 // define curve class
@@ -214,12 +201,12 @@ class myCurve
         ~myCurve(){};
 
         // object function declarations
-        std::vector<float> * get_year_frac(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<myDate> * get_tenor_dates(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_zero_rate(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_df(const std::vector<std::tuple<int, int>> &tenor);
-        std::vector<float> * get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm);
-        std::vector<float> * get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<float> &nominals, const int &step, const std::string &dcm);
+        std::vector<double> get_year_frac(const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<myDate> get_tenor_dates(const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<double> get_zero_rate(const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<double> get_df(const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<double> get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm) const;
+        std::vector<double> get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<double> &nominals, const std::vector<double> &amorts, const int &step, const std::string &dcm) const;
 };
 
 // define curves class
@@ -236,5 +223,10 @@ class myCurves
         ~myCurves(){};
 
         // object function declarations
-        myCurve * get_crv(const std::string &crv_nm);
+        std::vector<double> get_year_frac(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<myDate> get_tenor_dates(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<double> get_zero_rate(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<double> get_df(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const;
+        std::vector<double> get_fwd_rate(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm) const;
+        std::vector<double> get_par_rate(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor, const std::vector<double> &nominals, const std::vector<double> &amorts, const int &step, const std::string &dcm) const;
 };

@@ -30,8 +30,8 @@ myFx::myFx(const mySQLite &db, const std::string &sql_file_nm)
         std::tuple<int, std::string> ccy = {scn_no, ccy_nm};
 
         // add the data to FX object
-        float rate = std::stod(rslt->tbl.values[idx][2]);
-        this->data.insert(std::pair<std::tuple<int, std::string>, float>(ccy, rate));
+        double rate = std::stod(rslt->tbl.values[idx][2]);
+        this->data.insert(std::pair<std::tuple<int, std::string>, double>(ccy, rate));
     }
 
     // delete unused points
@@ -39,10 +39,10 @@ myFx::myFx(const mySQLite &db, const std::string &sql_file_nm)
 }
 
 // get FX rate based on scenario number and currency name
-float * myFx::get_fx(const std::tuple<int, std::string> &ccy)
+double myFx::get_fx(const std::tuple<int, std::string> &ccy) const
 {
     // get FX rate
-    float * rate = &(this->data.at(ccy));
+    double rate = this->data.at(ccy);
 
     // return FX rate
     return rate;

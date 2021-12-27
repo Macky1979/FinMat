@@ -72,9 +72,8 @@ int main()
 
     // print CZK / EUR rate
     std::tuple<int, std::string> scn_ccy = {1, "CZK"};
-    float * fx_rate;
-    fx_rate = fx.get_fx(scn_ccy);
-    std::cout << "CZK / EUR rate for scenario 1: " + std::to_string(*fx_rate) << std::endl;
+    double fx_rate = fx.get_fx(scn_ccy);
+    std::cout << "CZK / EUR rate for scenario 1: " + std::to_string(fx_rate) << std::endl;
 
     // everything OK
     return 0;
@@ -87,7 +86,7 @@ class myFx
 {
     public:
         // object variables
-        std::map<std::tuple<int, std::string>, float> data; // map based on scenario number and currency name
+        std::map<std::tuple<int, std::string>, double> data; // map based on scenario number and currency name
 
         // object constructors
         myFx(const mySQLite &db, const std::string &sql_file_nm);
@@ -96,5 +95,5 @@ class myFx
         ~myFx(){};
 
         // object function declarations
-        float * get_fx(const std::tuple<int, std::string> &ccy);
+        double get_fx(const std::tuple<int, std::string> &ccy) const;
 };

@@ -60,9 +60,9 @@ myCurve::myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::
     }
 
     // prepare std::vector of tenors for which we want to interporate the curve
-    std::vector<float> tenors;
+    std::vector<double> tenors;
     std::vector<myDate> tenor_dates;
-    for (float tenor = 1; tenor < 120 * 365 + 1; tenor++)
+    for (double tenor = 1; tenor < 120 * 365 + 1; tenor++)
     {
         tenors.push_back(tenor);
         myDate tenor_date = this->calc_date;
@@ -73,8 +73,8 @@ myCurve::myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::
     // go scenario by scenario
     int scn_no = -1;
     bool is_new_scn = false;
-    std::vector<float> _tenors;
-    std::vector<float> _rates;
+    std::vector<double> _tenors;
+    std::vector<double> _rates;
 
     for (int idx = 0; idx < rslt->tbl.values.size(); idx++)
     {
@@ -83,7 +83,7 @@ myCurve::myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::
         {
             // interpolate rates
             myLinInterp interp(_tenors, _rates);
-            std::vector<float> * rates = new std::vector<float>();
+            std::vector<double> * rates = new std::vector<double>();
             rates = interp.eval(tenors);
 
             // go scenario line by line
@@ -159,141 +159,166 @@ myCurves::myCurves(const mySQLite &db, const std::string &sql_file_nm, const myD
  * OBJECT FUNCTIONS
  */
 
-// get year fraction based on std::vector of scenario numbers and tenor integer dates in yyyymmdd format
-std::vector<float> * myCurve::get_year_frac(const std::vector<std::tuple<int, int>> &tenor)
+// get year fraction based on vector of scenario numbers and tenor integer dates in yyyymmdd format
+std::vector<double> myCurve::get_year_frac(const std::vector<std::tuple<int, int>> &tenor) const
 {
-    // create std::vector to hold data
-    std::vector<float> * year_fracs = new std::vector<float>();
+    // create vector to hold data
+    std::vector<double> year_fracs;
 
     // go through the tenors on input
     for (int idx = 0; idx < tenor.size(); idx++)
     {
-        year_fracs->push_back(this->tenor.at(tenor[idx]).year_frac);
+        year_fracs.push_back(this->tenor.at(tenor[idx]).year_frac);
     }
 
-    // return pointer to std::vector of zero rates
+    // return vector of zero rates
     return year_fracs;
 }
 
-// get tenor dates based on std::vector of scenario numbers and tenor integer dates in yyyymmdd format
-std::vector<myDate> * myCurve::get_tenor_dates(const std::vector<std::tuple<int, int>> &tenor)
+// get tenor dates based on vector of scenario numbers and tenor integer dates in yyyymmdd format
+std::vector<myDate> myCurve::get_tenor_dates(const std::vector<std::tuple<int, int>> &tenor) const
 {
-    // create std::vector to hold data
-    std::vector<myDate> * tenor_dates = new std::vector<myDate>();
+    // create vector to hold data
+    std::vector<myDate> tenor_dates;
 
     // go through the tenors on input
     for (int idx = 0; idx < tenor.size(); idx++)
     {
-        tenor_dates->push_back(this->tenor.at(tenor[idx]).tenor_date);
+        tenor_dates.push_back(this->tenor.at(tenor[idx]).tenor_date);
     }
 
-    // return pointer to std::vector of zero rates
+    // return vector of zero rates
     return tenor_dates;
 }
 
-// get zero rate based on std::vector of scenario numbers and tenor std::string dates in yyyymmdd format
-std::vector<float> * myCurve::get_zero_rate(const std::vector<std::tuple<int, int>> &tenor)
+// get zero rate based on vector of scenario numbers and tenor std::string dates in yyyymmdd format
+std::vector<double> myCurve::get_zero_rate(const std::vector<std::tuple<int, int>> &tenor) const
 {
-    // create std::vector to hold data
-    std::vector<float> * zero_rates = new std::vector<float>();
+    // create vector to hold data
+    std::vector<double> zero_rates;
 
     // go through the tenors on input
     for (int idx = 0; idx < tenor.size(); idx++)
     {
-        zero_rates->push_back(this->tenor.at(tenor[idx]).zero_rate);
+        zero_rates.push_back(this->tenor.at(tenor[idx]).zero_rate);
     }
 
-    // return pointer to std::vector of zero rates
+    // return vector of zero rates
     return zero_rates;
 }
 
-// get discount factor based on std::vector of scenario numbers and tenors
-std::vector<float> * myCurve::get_df(const std::vector<std::tuple<int, int>> &tenor)
+// get discount factor based on vector of scenario numbers and tenors
+std::vector<double> myCurve::get_df(const std::vector<std::tuple<int, int>> &tenor) const
 {
-    // create std::vector to hold data
-    std::vector<float> * dfs = new std::vector<float>();
+    // create vector to hold data
+    std::vector<double> dfs;
 
     // go through the tenors on input
     for (int idx = 0; idx < tenor.size(); idx++)
     {
-        dfs->push_back(this->tenor.at(tenor[idx]).df);
+        dfs.push_back(this->tenor.at(tenor[idx]).df);
     }
 
-    // return pointer to std::vector of zero rates
+    // return vector of zero rates
     return dfs;
 }
 
-// calculate forward rate based on std::vector scenarios numbers and tenors
-std::vector<float> * myCurve::get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm)
+// calculate forward rate based on vector scenarios numbers and tenors
+std::vector<double> myCurve::get_fwd_rate(const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm) const
 {
-    // create std::vectors to hold data
-    std::vector<float> * dfs = new std::vector<float>();
-    std::vector<float> * year_fracs = new std::vector<float>();
-    std::vector<myDate> * tenor_dates = new std::vector<myDate>();
-    std::vector<float> * fwds = new std::vector<float>();
+    // create vector to hold data
+    std::vector<double> fwds;
 
     // get tenor dates and corresponding discount factors
-    tenor_dates = this->get_tenor_dates(tenor);
-    dfs = this->get_df(tenor);
+    std::vector<myDate> tenor_dates = this->get_tenor_dates(tenor);
+    std::vector<double> dfs = this->get_df(tenor);
     
     // calculate forward rates
-    for (int idx = 0; idx < dfs->size() - 1; idx++)
+    for (int idx = 0; idx < dfs.size() - 1; idx++)
     {
-        float df1 = (*dfs)[idx];
-        float df2 = (*dfs)[idx + 1];
-        float d_t = day_count_method((*tenor_dates)[idx], (*tenor_dates)[idx + 1], dcm);
-        float fwd = (df1 / df2 - 1) / d_t;
-        fwds->push_back(fwd);
+        double df1 = dfs[idx];
+        double df2 = dfs[idx + 1];
+        double d_t = day_count_method(tenor_dates[idx], tenor_dates[idx + 1], dcm);
+        double fwd = (df1 / df2 - 1) / d_t;
+        fwds.push_back(fwd);
     }
 
-    // delete unsed pointers
-    delete dfs;
-    delete year_fracs;
-    delete tenor_dates;
-
-    // return pointer to std::vector of forward rates
+    // return vector of forward rates
     return fwds;
 }
 
-// calculate par rate based on std::vector scenarios numbers, tenors and nominals
-std::vector<float> * myCurve::get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<float> &nominals, const int &step, const std::string &dcm)
+// calculate par rate based on vector scenarios numbers, tenors and nominals
+std::vector<double> myCurve::get_par_rate(const std::vector<std::tuple<int, int>> &tenor, const std::vector<double> &nominals_begin, const std::vector<double> &nominals_end, const int &step, const std::string &dcm) const
 {
-    // create std::vectors to hold data
-    std::vector<float> * dfs = new std::vector<float>();
-    std::vector<float> * year_fracs = new std::vector<float>();
-    std::vector<myDate> * tenor_dates = new std::vector<myDate>();
-    std::vector<float> * pars = new std::vector<float>();
+    // create vector to hold data
+    std::vector<double> pars;
 
     // get discount factors and year fractions
-    tenor_dates = this->get_tenor_dates(tenor);
-    dfs = this->get_df(tenor);
+    std::vector<myDate> tenor_dates = this->get_tenor_dates(tenor);
+    std::vector<double> dfs = this->get_df(tenor);
 
-    // calculate par rates
-    for (int idx = 0; idx < dfs->size() - step; idx++)
+    // calculate par-rate
+    double par;
+    for (int idx = 0; idx < dfs.size() - step; idx++)
     {
-        float par = (*dfs)[idx] * nominals[idx] - (*dfs)[idx + step] * nominals[idx + step];
-        float aux = 0;
+        // nominals
+        par = dfs[idx] * nominals_end[idx] - dfs[idx + step] * nominals_end[idx + step];
+
+        double aux = 0;
         for (int idx2 = 0; idx2 < step; idx2++)
         {
-            float d_t = day_count_method((*tenor_dates)[idx + idx2], (*tenor_dates)[idx + idx2 + 1], dcm);
-            aux += d_t * (*dfs)[idx + idx2] * nominals[idx + idx2];;
+            // amortizaton payments
+            double amort = nominals_begin[idx + idx2 + 1] - nominals_end[idx + idx2 + 1];
+            par -= dfs[idx + idx2 + 1] * amort;
+
+            // coupon payments
+            double d_t = day_count_method(tenor_dates[idx + idx2], tenor_dates[idx + idx2 + 1], dcm);
+            aux += d_t * dfs[idx + idx2 + 1] * nominals_begin[idx + idx2 + 1];            
         }
+
+        // calculate par-rate
         par /= aux;
-        pars->push_back(par);
+
+        // store par-rate
+        pars.push_back(par);
     }
-
-    // delete unsed pointers
-    delete dfs;
-    delete year_fracs;
-    delete tenor_dates;
-
-    // return pointer to std::vector of forward rates
+    
+    // return vector of forward rates
     return pars;
 }
 
-// extract a particular curve from myCurves object
-myCurve * myCurves::get_crv(const std::string &crv_nm)
+// get year fraction based on vector of scenario numbers and tenor integer dates in yyyymmdd format
+std::vector<double> myCurves::get_year_frac(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const
 {
-    myCurve * crv = &this->crv.at(crv_nm);
-    return crv;
+    return this->crv.at(crv_nm).get_year_frac(tenor);
+}
+
+// get tenor dates based on vector of scenario numbers and tenor integer dates in yyyymmdd format
+std::vector<myDate> myCurves::get_tenor_dates(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const
+{
+    return this->crv.at(crv_nm).get_tenor_dates(tenor);
+}
+
+// get zero rate based on vector of scenario numbers and tenor std::string dates in yyyymmdd format
+std::vector<double> myCurves::get_zero_rate(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const
+{
+    return this->crv.at(crv_nm).get_zero_rate(tenor);
+}
+
+// get discount factor based on vector of scenario numbers and tenors
+std::vector<double> myCurves::get_df(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor) const
+{
+    return this->crv.at(crv_nm).get_df(tenor);
+}
+
+// calculate forward rate based on vector scenarios numbers and tenors
+std::vector<double> myCurves::get_fwd_rate(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor, const std::string &dcm) const
+{
+    return this->crv.at(crv_nm).get_fwd_rate(tenor, dcm); 
+}
+
+// calculate par rate based on vector scenarios numbers, tenors and nominals
+std::vector<double> myCurves::get_par_rate(const std::string &crv_nm, const std::vector<std::tuple<int, int>> &tenor, const std::vector<double> &nominals_begin, const std::vector<double> &nominals_end, const int &step, const std::string &dcm) const
+{
+    return this->crv.at(crv_nm).get_par_rate(tenor, nominals_begin, nominals_end, step, dcm); 
 }
