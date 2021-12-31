@@ -29,7 +29,7 @@ SELECT ccy_nm, scn_no, rate FROM ccy_data;
 ###!dcm_def - table holding day-count-method definitions
 CREATE TABLE IF NOT EXISTS dcm_def
 (
-    dcm VARCHAR(10) NOT NULL PRIMARY KEY,
+    dcm VARCHAR(10) PRIMARY KEY,
     description VARCHAR(100)
 );
 
@@ -149,7 +149,58 @@ CREATE TABLE IF NOT EXISTS bnd_npv
     npv FLOAT NOT NULL,
     acc_int_ref_ccy FLOAT NOT NULL,
     npv_ref_ccy FLOAT NOT NULL,
-    FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES bnd_def(ent_nm, parent_id, contract_id, ptf)
+    FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES bnd_data(ent_nm, parent_id, contract_id, ptf)
+    UNIQUE (scn_no, ent_nm, parent_id, contract_id, ptf)
+)
+
+###!ann_data - table holding annuities definitions
+CREATE TABLE IF NOT EXISTS ann_data
+(
+    ent_nm VARCHAR(5) NOT NULL,
+    parent_id VARCHAR(10) NOT NULL,
+    contract_id VARCHAR(10) NOT NULL,
+    issuer_id VARCHAR(15),
+    ptf VARCHAR(10) NOT NULL,
+    account VARCHAR(50),
+    isin VARCHAR(15),
+    comments VARCHAR(256),
+    ann_type VARCHAR(10),
+    fix_type VARCHAR(5),
+    rtg VARCHAR(5),
+    ccy_nm CHAR(3) NOT NULL,
+    nominal FLOAT NOT NULL,
+    deal_date INT NOT NULL,
+    maturity_date INT NOT NULL,
+    acc_int FLOAT,
+    internal_rate FLOAT,
+    rate_mult FLOAT,
+    rate_add FLOAT,
+    first_ann_date INT NOT NULL,
+    ann_freq VARCHAR(5),
+    first_fix_date INT,
+    fix_freq VARCHAR(5),
+    crv_disc VARCHAR(20) NOT NULL,
+    crv_fwd VARCHAR(20),
+    FOREIGN KEY (ccy_nm) REFERENCES ccy_def(ccy_nm),
+    FOREIGN KEY (ann_freq) REFERENCES freq_def(freq),
+    FOREIGN KEY (fix_freq) REFERENCES freq_def(freq),
+    FOREIGN KEY (crv_disc) REFERENCES crv_def(crv_nm),
+    UNIQUE (ent_nm, parent_id, contract_id, ptf)
+);
+
+###!ann_npv - table holding risk measures for annuities
+CREATE TABLE IF NOT EXISTS ann_npv
+(
+    scn_no INT NOT NULL,
+    ent_nm VARCHAR(5) NOT NULL,
+    parent_id VARCHAR(10) NOT NULL,
+    contract_id VARCHAR(10) NOT NULL,
+    ptf  VARCHAR(10) NOT NULL,
+    acc_int FLOAT NOT NULL,
+    npv FLOAT NOT NULL,
+    acc_int_ref_ccy FLOAT NOT NULL,
+    npv_ref_ccy FLOAT NOT NULL,
+    FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES ann_data(ent_nm, parent_id, contract_id, ptf)
     UNIQUE (scn_no, ent_nm, parent_id, contract_id, ptf)
 )
 

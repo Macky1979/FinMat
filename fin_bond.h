@@ -1,5 +1,3 @@
-# pragma once
-
 /*
 #include <string>
 #include <iostream>
@@ -159,8 +157,9 @@ int main()
     // everything OK
     return 0;
 }
-
 */
+
+# pragma once
 
 #include <iostream>
 #include <string>
@@ -203,31 +202,31 @@ struct bnd_info
 	std::string isin;
     std::string comments;
 	std::string bnd_type;
-	bool is_fixed;
+	bool is_fixed = true;
 	std::string fix_type;
 	std::string rtg;
 	std::string ccy_nm;
-	double nominal;
+	double nominal = 0.0;
 	myDate deal_date;
 	myDate maturity_date;
     std::string dcm;
-    bool is_acc_int;
-    double acc_int;
-    double acc_int_ref_ccy;
-	double cpn_rate;
+    bool is_acc_int = false;
+    double acc_int = 0.0;
+    double acc_int_ref_ccy = 0.0;
+	double cpn_rate = 0.0;
 	myDate first_cpn_date;
 	std::string cpn_freq;
 	myDate first_fix_date;
 	std::string fix_freq;
 	myDate first_amort_date;
 	std::string amort_freq;
-	double amort;
-	double rate_mult;
-	double rate_add;
+	double amort = 0.0;
+	double rate_mult = 0.0;
+	double rate_add = 0.0;
 	std::string crv_disc;
 	std::string crv_fwd;
-    double npv;
-    double npv_ref_ccy;
+    double npv = 0.0;
+    double npv_ref_ccy = 0.0;
     std::string wrn_msg = "";
     std::vector<event> events;
 };

@@ -16,7 +16,7 @@
  */
 
 // extract vector of dates from vector of events
-std::vector<myDate> extract_dates_from_events(const std::vector<event> &events, const std::string &type)
+static std::vector<myDate> extract_dates_from_events(const std::vector<event> &events, const std::string &type)
 {
     // create pointer to vector of dates
     std::vector<myDate> dates;
@@ -108,7 +108,8 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 bnd.wrn_msg += "unsupported fixing type " + aux + ";";
                 bnd.fix_type = "fix";
             }
-            else if (aux.compare("fix") == 0)
+
+            if (aux.compare("fix") == 0)
             {
                 bnd.is_fixed = true;
             }
@@ -394,9 +395,6 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     bnd.crv_fwd = "";
                 }
             }
-
-            // reset NPV
-            bnd.npv = 0.0;
 
         // perform other sanity checks
        
