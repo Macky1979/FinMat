@@ -1,0 +1,7 @@
+ent_nm,parent_id,contract_id,issuer_id,ptf,account,isin,comments,bnd_type,fix_type,rtg,ccy_nm,nominal,deal_date,maturity_date,dcm,acc_int,cpn_rate,first_cpn_date,cpn_freq,first_fix_date,fix_freq,first_amort_date,amort_freq,amort,rate_mult,rate_add,crv_disc,crv_fwd
+CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,FLOAT,INT,INT,CHAR,FLOAT,FLOAT,INT,CHAR,INT,CHAR,INT,CHAR,FLOAT,FLOAT,FLOAT,CHAR,CHAR
+kbc,0,0,n/a,bnd,/assets/sovereign_bonds,BND01,n/a,PAM,fix,a,eur,1000,20210630,20310630,ACT_360,,0.01,20211230,6M,,,,,,,,TREASCRV.BEF,
+kbc,1,0,n/a,bnd,/assets/sovereign_bonds,BND02,n/a,PAM,fwd,a,eur,1000,20210630,20310630,ACT_360,,0.01,20211230,6M,20211230,6M,,,,1,0.0025,TREASCRV.BEF,INTERBCRV.EUR
+kbc,2,0,n/a,bnd,/assets/sovereign_bonds,BND03,n/a,PAM,par,a,eur,1000,20210630,20310630,ACT_360,,0.01,20211230,6M,20220630,1Y,,,,1.1,0,TREASCRV.BEF,INTERBCRV.EUR
+kbc,3,0,n/a,bnd,/assets/sovereign_bonds,BND04,n/a,PAM,par,a,eur,1000,20210630,20310630,ACT_360,,0.01,20211230,6M,20220630,1Y,20220630,2Y,100,,,TREASCRV.BEF,INTERBCRV.EUR
+kbc,4,0,n/a,bnd,/assets/sovereign_bonds,BND05,n/a,PAM,,a,eur,1000,20210630,20310630,,,,,,,,,,,,,TREASCRV.BEF,

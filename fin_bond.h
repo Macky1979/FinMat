@@ -135,12 +135,43 @@ int main()
     // load bonds
     myBonds bnds = myBonds(db, "SELECT * FROM bnd_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
 
-    std::cout << get_timestamp() + " - evaluating bonds..." << std::endl;
-
-    // evaluate bonds
+    // define scenario number and reference currency to be used in valuation
     int scn_no = 1;
     std::string ref_ccy_nm = "EUR";
+
+    std::cout << get_timestamp() + " - evaluating bonds on a single core..." << std::endl;
+
+    // evaluate bonds using single core
     bnds.calc_npv(scn_no, crvs, fx, ref_ccy_nm);
+
+    std::cout << get_timestamp() + " - evaluating bonds using multithreading..." << std::endl;
+
+    // evaluate annuties using multiple cores
+    int threads_no = 4;
+
+    std::cout << get_timestamp() + " -    spliting contracts..." << std::endl;
+
+    std::vector<myBonds> bnds_thrd = bnds.split(threads_no);
+
+    std::cout << get_timestamp() + " -    running individual threads..." << std::endl;
+
+    std::vector<std::thread> workers;
+    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    {
+        workers.emplace_back(bnds_thrd[thread_idx].calc_npv_thrd(scn_no, crvs, fx, ref_ccy_nm));
+    }
+
+    std::cout << get_timestamp() + " -    waiting for individual threads to finish..." << std::endl;
+
+    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    {
+        workers[thread_idx].join();
+    }
+
+    std::cout << get_timestamp() + " -    merging results..." << std::endl;
+
+    // merge results into a single vector
+    bnds.merge(bnds_thrd);
 
     std::cout << get_timestamp() + " - storing NPV into SQLite database file..." << std::endl;
 
@@ -164,12 +195,13 @@ int main()
 #include <iostream>
 #include <string>
 #include <vector>
+#include <thread>
 #include "lib_date.h"
 #include "fin_curve.h"
 #include "fin_fx.h"
 
 // event data type
-struct event
+struct bnd_event
 {
     myDate date_begin;
     myDate date_end;
@@ -228,7 +260,7 @@ struct bnd_info
     double npv = 0.0;
     double npv_ref_ccy = 0.0;
     std::string wrn_msg = "";
-    std::vector<event> events;
+    std::vector<bnd_event> events;
 };
 
 /*
@@ -243,12 +275,20 @@ class myBonds
 
     public:
         // object constructors
+        myBonds(std::vector<bnd_info> info){this->info = info;};
         myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_date);
+
+        // copy constructor
+        myBonds(const myBonds &bnds){this->info = bnds.info;};
 
         // object destructors
         ~myBonds(){};
 
         // object function declarations
+        void clear(){this->info.clear();};
+        std::vector<myBonds> split(const int &threads_no);
+        void merge(std::vector<myBonds> &bnds);
         void calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm);
+        std::thread calc_npv_thrd(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm);
         void write_npv(mySQLite &db, const int &scn_no, const std::string &ent_nm, const std::string &ptf);
 };

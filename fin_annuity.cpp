@@ -5,6 +5,8 @@
 #include <vector>
 #include <memory>
 #include <math.h>
+#include <thread>
+#include "lib_aux.h"
 #include "lib_date.h"
 #include "lib_dataframe.h"
 #include "fin_curve.h"
@@ -15,15 +17,101 @@
 /*
  * AUXILIARY FUNCTIONS
  */
+
 // calculate annuity payment assuming initial nominal of 1 currency unit
 static double calc_ann_payment(const double &rate, const int &rmng_ann_payments, const int &payment_freq)
 {
    double q = 1 / (1 + rate / payment_freq);
-   return 1 / q * (1 - pow(q, rmng_ann_payments)) * (1 - q);
+   return 1 / (q * (1 - static_cast<double>(pow(q, rmng_ann_payments)))) * (1 - q);
+}
+
+// calculate npv of annuity; this is an auxiliary function used in annuity repricing function
+static double calc_ann_npv_aux(const double &rate, const int &rmng_ann_payments, const int &payment_freq, const std::vector<double> &dfs)
+{
+    // set fictive initial nominal
+    double nominal = 1.0;
+
+    // calculate annuity payment
+    double ann_payment = calc_ann_payment(rate, rmng_ann_payments, payment_freq) * nominal;
+
+    // variable to hold nominal
+    double npv = nominal * dfs[0];
+
+    // get number of annuity payments to evaluate
+    int ann_payments_no = dfs.size() - 1;
+
+    // determine end nominal and cumulative discount factor
+    double df_cum = 0.0;
+    for (int idx = 1; idx <= ann_payments_no; idx++)
+    {
+        // cumulative discount factor
+        df_cum += dfs[idx];
+
+        // determinal nominal amortization
+        nominal -= (ann_payment - rate / payment_freq * nominal);
+    }
+
+    // adjust npv for annuity payments
+    npv -= ann_payment * df_cum;
+
+    // adjust npv for end nominal
+    npv -= nominal * dfs[dfs.size() - 1];
+
+    // return npv
+    return npv;
+}
+
+
+// calculate annuity repricing rate
+static double get_ann_rate(const int &rmng_ann_payments, const int &payment_freq, const std::vector<double> &dfs, const int &max_iter_no, const double &precission)
+{
+    // get estimate of repricing period
+    double dt = (dfs.size() - 1) / payment_freq;
+
+    // calculate forward rate as an initial estimate
+    double r;
+    if (dt > 1.0)
+        r = static_cast<double>(pow(dfs[0] / dfs[dfs.size() - 1], 1 / dt)) - 1;
+    else
+        r = (dfs[0] / dfs[dfs.size() - 1] - 1) / dt;
+
+    // set delta rate to determine numerical derivation
+    double dr = 0.0001;
+
+    // determine optimal rate through Newton-Raphson method
+    for (int iter_idx = 0; iter_idx < max_iter_no; iter_idx++)
+    {
+        // calculate auxiliary npv and check if further iteration is needed
+        double npv = calc_ann_npv_aux(r, rmng_ann_payments, payment_freq, dfs);
+        if (abs(npv) < precission)
+        {
+            return r;
+        }
+     
+        // unfortunately, further iteration is needed
+        double npv_down = calc_ann_npv_aux(r - dr, rmng_ann_payments, payment_freq, dfs);
+        double npv_up = calc_ann_npv_aux(r + dr, rmng_ann_payments, payment_freq, dfs);
+
+        // calculate numerical derivative
+        double d_npv = (npv_up - npv_down) / (2 * dr);
+
+        // calculate annuity rate correction if needed
+        if (abs(d_npv) > 1e-10)
+        {
+            r -= npv / d_npv;
+        }
+        else
+        {
+            return r;
+        }
+    }
+
+    // return repricing annuity rate
+    return r;
 }
 
 // extract vector of dates from vector of events
-static std::vector<myDate> extract_dates_from_events(const std::vector<event> &events, const std::string &type)
+static std::vector<myDate> extract_dates_from_events(const std::vector<ann_event> &events, const std::string &type)
 {
     // create pointer to vector of dates
     std::vector<myDate> dates;
@@ -177,51 +265,23 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             aux = rslt->tbl.values[ann_idx][17];
             if (aux.compare("") == 0) // rate multiplier not provided
             {
-                if (!ann.is_fixed) // floating annuity
-                {
-                    ann.wrn_msg += "rate multiplier not provided for a floating annuity;";
-                    ann.rate_mult = 1.0;
-                }
-                else // fixed annuity
-                {
-                    ann.rate_mult = 0.0;
-                }
-                
+                ann.wrn_msg += "rate multiplier not provided for a floating annuity;";
+                ann.rate_mult = 1.0;
             }
             else // rate multiplied provided
             {
-                if (!ann.is_fixed) // floating annuity
-                {
-                    ann.rate_mult = stod(aux);
-                }
-                else // fixed annuity
-                {
-                    ann.wrn_msg += "rate multiplier provided for a fixed annuity;";
-                    ann.rate_mult = 0.0;
-                }
+                ann.rate_mult = stod(aux);
             }
 
             // spread to be added to a repricing rate
             aux = rslt->tbl.values[ann_idx][18];
             if (aux.compare("") == 0) // spread not specified
             {
-                if (!ann.is_fixed) // floating annuity
-                {
-                    ann.wrn_msg += "repricing spread not provided for a flating annuity;";
-                }
-                ann.rate_add = 0.0;
+                ann.wrn_msg += "repricing spread not provided for a flating annuity;";
             }
             else // spread specified
             {
-                if (!ann.is_fixed) // floating annuity
-                {
-                    ann.rate_add = stod(aux);
-                }
-                else // fixed annuity
-                {
-                    ann.wrn_msg += "repricing spread provided for a fixed annuity;";
-                    ann.rate_add = 0.0;
-                }
+                ann.rate_add = stod(aux);
             }
 
             // first annuity date
@@ -401,8 +461,8 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             myDate date2;
 
             // events
-            event evnt;
-            std::vector<event> events;
+            ann_event evnt;
+            std::vector<ann_event> events;
 
             // position index
             int pos_idx;
@@ -643,7 +703,6 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
 
             // add bond to vector of bonds
             this->info.emplace_back(ann);
-    
         }
 
     // delete unused pointers
@@ -653,113 +712,173 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
 /*
  * OBJECT FUNCTIONS
  */
-/*
+
+// split the object
+std::vector<myAnnuities> myAnnuities::split(const int &threads_no)
+{
+
+    // determine position indicies of the newly created vectors
+    std::vector<coordinates<int>> indicies = split_vector(this->info.size(), threads_no);
+
+    // split original object myAnnuities into several smaller objects
+    std::vector<myAnnuities> anns;
+    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    {
+        // determine the first and the last position index
+        std::vector<ann_info>::const_iterator first = this->info.begin() + indicies[thread_idx].x;
+        std::vector<ann_info>::const_iterator last = this->info.begin() + indicies[thread_idx].y + 1;
+
+        // extract annuity information
+        std::vector<ann_info> info(first, last);
+
+        // create new smaller object based on the position indicies
+        myAnnuities ann(info);
+
+        // add the new object to the vector
+        anns.emplace_back(ann);
+    }
+
+    // release memory by clearing the original object
+    this->clear();
+
+    // return vector of objects
+    return anns;
+}
+
+// merge several objects
+void myAnnuities::merge(std::vector<myAnnuities> &anns)
+{
+
+    // pre-allocate memory
+    int final_vector_size = 0;
+    std::vector<ann_info> info;
+    
+    for (int idx = 0; idx < anns.size(); idx++)
+    {
+        final_vector_size += anns[idx].info.size();
+    }
+
+    info.reserve(final_vector_size);
+
+    // merge individual vectors
+    for (int idx = 0; idx < anns.size(); idx++)
+    {
+        info.insert(info.end(), anns[idx].info.begin(), anns[idx].info.end());
+        anns[idx].clear(); // release memory by clearing individual objects
+    }
+
+    // copy merged vectors into the current object
+    this->info = info;
+
+}
+
 // calculate NPV
 void myAnnuities::calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm)
 {
     // variables 
     std::vector<std::tuple<int, int>> scn_tenors;
 
-    // go bond by bond
-    for (int idx = 0; idx < this->info.size(); idx++)
+    // go annuity by annuity
+    for (int ann_idx = 0; ann_idx < this->info.size(); ann_idx++)
     {
-
-        // calculate repricing rates for floating bonds
-        if (!this->info[idx].is_fixed)
+        // calculate repricing rates for floating annuities
+        if (!this->info[ann_idx].is_fixed)
         {
             // go event by event
-            for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+            for (int idx = 0; idx < this->info[ann_idx].events.size(); idx++)
             {
-                // coupon is already fixed
-                if (this->info[idx].events[idx2].is_cpn_fixed)
+
+                // update begining nominal
+                if (!this->info[ann_idx].events[idx].is_ann_fixed)
                 {
-                    // re-pricing frequency could be of lower frequency than
-                    // coupon frequency => coupon could be paid out every
-                    // 6M but repricing could take place every 1Y => we might
-                    // take fixed coupon from the previous event
-                    if (idx2 > 0)
+                    // update begin nominal
+                    if (idx > 0)
                     {
-                        this->info[idx].events[idx2].cpn = this->info[idx].events[idx2 - 1].cpn;
+                        this->info[ann_idx].events[idx].nominal_begin = this->info[ann_idx].events[idx - 1].nominal_end;
                     }
                 }
-                // coupon rate is not yet fixed but will be set in line with the previous coupon
-                // period; could occur if e.g coupon period is 6M and repricing period is 1Y
-                else if (!this->info[idx].events[idx2].fix_flg)
+
+                // rate is already fixed
+                if (this->info[ann_idx].events[idx].is_ann_fixed | !this->info[ann_idx].events[idx].fix_flg)
                 {
-                    this->info[idx].events[idx2].cpn = this->info[idx].events[idx2 - 1].cpn;
+                    if (idx > 0)
+                    {
+                        this->info[ann_idx].events[idx].int_rate = this->info[ann_idx].events[idx - 1].int_rate;
+                        this->info[ann_idx].events[idx].ext_rate = this->info[ann_idx].events[idx - 1].ext_rate;
+                        this->info[ann_idx].events[idx].ext_ann_payment = this->info[ann_idx].events[idx - 1].ext_ann_payment;
+                    }
                 }
-                // calculate forward rate / par rate for unfixed coupon rates
+                // calculate repricing rate for unfixed events
                 else
                 {
                     // prepare vector with scenario number and tenors
                     scn_tenors.clear();
-                    for (int idx3 = 0; idx3 < this->info[idx].events[idx2].repricing_dates.size(); idx3++)
+                    for (int idx2 = 0; idx2 < this->info[ann_idx].events[idx].repricing_dates.size(); idx2++)
                     {
-                        scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[idx].events[idx2].repricing_dates[idx3].get_date_int()));
+                        scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[ann_idx].events[idx].repricing_dates[idx2].get_date_int()));
                     }
 
-                    // apply forward rate
-                    if (this->info[idx].fix_type.compare("fwd") == 0)
-                    {
-                        // get forward rate
-                        std::vector<double> fwds = crvs.get_fwd_rate(this->info[idx].crv_fwd, scn_tenors, this->info[idx].dcm);
+                    // extract vector of discounting factors
+                    std::vector<double> dfs = crvs.get_df(this->info[ann_idx].crv_fwd, scn_tenors);
 
-                        // use the forward rate as a coupon rate
-                        this->info[idx].events[idx2].cpn = fwds[0];
-                    }
-                    // apply par-rate
-                    else
-                    {
-                        // get par-rate
-                        int par_step = this->info[idx].events[idx2].repricing_dates.size() - 1;
-                        std::vector<double> pars = crvs.get_par_rate(this->info[idx].crv_fwd, scn_tenors, this->info[idx].events[idx2].par_nominals_begin, this->info[idx].events[idx2].par_nominals_end, par_step, this->info[idx].dcm);
-
-                        // user the par-rate as a coupon rate
-                        this->info[idx].events[idx2].cpn = pars[0];
-                    }
-
-                    // apply multiplier and spread
-                    this->info[idx].events[idx2].cpn = this->info[idx].events[idx2].cpn * this->info[idx].rate_mult + this->info[idx].rate_add;
+                    // estimate repricing annuity rate through Newton-Raphson method
+                    int max_iter_no = 5;
+                    double precission = 1e-10;
+                    this->info[ann_idx].events[idx].int_rate = get_ann_rate(this->info[ann_idx].events[idx].rmng_ann_payments, this->info[ann_idx].ann_freq_aux, dfs, max_iter_no, precission);
+                    this->info[ann_idx].events[idx].ext_rate = this->info[ann_idx].rate_mult * this->info[ann_idx].events[idx].int_rate + this->info[ann_idx].rate_add;
+                    this->info[ann_idx].events[idx].ext_ann_payment = calc_ann_payment(this->info[ann_idx].events[idx].ext_rate, this->info[ann_idx].events[idx].rmng_ann_payments, this->info[ann_idx].ann_freq_aux) * this->info[ann_idx].events[idx].nominal_begin;
                 }
-            }
 
-            // calculate coupon payment and cash-flow
-            for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
-            {
-                this->info[idx].events[idx2].cpn_payment = this->info[idx].events[idx2].nominal_begin * this->info[idx].events[idx2].cpn * this->info[idx].events[idx2].cpn_year_frac;
-                this->info[idx].events[idx2].cf = this->info[idx].events[idx2].cpn_payment + this->info[idx].events[idx2].amort_payment;
+                // update interest payments
+                this->info[ann_idx].events[idx].ext_int_payment = this->info[ann_idx].events[idx].nominal_begin / this->info[ann_idx].ann_freq_aux * this->info[ann_idx].events[idx].ext_rate;
+                this->info[ann_idx].events[idx].int_int_payment = this->info[ann_idx].events[idx].nominal_begin / this->info[ann_idx].ann_freq_aux * this->info[ann_idx].events[idx].int_rate;
+                
+                // calculate amortization
+                this->info[ann_idx].events[idx].ext_amort_payment = this->info[ann_idx].events[idx].ext_ann_payment - this->info[ann_idx].events[idx].ext_int_payment;
+                
+                // update end nominal
+                this->info[ann_idx].events[idx].nominal_end = this->info[ann_idx].events[idx].nominal_begin - this->info[ann_idx].events[idx].ext_amort_payment;
+                
+                // determine cash-flow
+                this->info[ann_idx].events[idx].ext_cf = this->info[ann_idx].events[idx].ext_int_payment + this->info[ann_idx].events[idx].ext_amort_payment;
+                this->info[ann_idx].events[idx].int_cf = this->info[ann_idx].events[idx].int_int_payment + this->info[ann_idx].events[idx].ext_amort_payment;
+
             }
         }
 
         // calculate discount factors and total bond NPV
-        this->info[idx].npv = 0.0;
-        // crv_disc = crvs.crv[this->info[idx].crv_disc]; // bottleneck
-
-        for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+        for (int idx = 0; idx < this->info[ann_idx].events.size(); idx++)
         {
             // prepare vector with scenario number and tenors
             std::vector<std::tuple<int, int>> scn_tenors;
-            scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[idx].events[idx2].date_end.get_date_int()));
+            scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[ann_idx].events[idx].date_end.get_date_int()));
             
             // get discounting factor
-            std::vector<double> dfs = crvs.get_df(this->info[idx].crv_disc, scn_tenors);
+            std::vector<double> dfs = crvs.get_df(this->info[ann_idx].crv_disc, scn_tenors);
 
             // store discount factor
-            this->info[idx].events[idx2].df = dfs[0];
+            this->info[ann_idx].events[idx].df = dfs[0];
 
             // update NPV
-            this->info[idx].npv += this->info[idx].events[idx2].cf * this->info[idx].events[idx2].df;
-
+            this->info[ann_idx].int_npv += this->info[ann_idx].events[idx].int_cf * this->info[ann_idx].events[idx].df;
+            this->info[ann_idx].ext_npv += this->info[ann_idx].events[idx].ext_cf * this->info[ann_idx].events[idx].df;
         }
 
         // calculate NPV and accured interest in reference currency
         std::tuple<int, std::string> scn_ccy = std::tuple<int, std::string>(scn_no, ref_ccy_nm);
         double fx_rate = fx.get_fx(scn_ccy);
 
-        this->info[idx].ext_acc_int_ref_ccy = this->info[idx].acc_int * fx_rate;
-        this->info[idx].npv_ref_ccy = this->info[idx].npv * fx_rate;
-
+        this->info[ann_idx].ext_acc_int_ref_ccy = this->info[ann_idx].ext_acc_int * fx_rate;
+        this->info[ann_idx].int_npv_ref_ccy = this->info[ann_idx].int_npv * fx_rate;
+        this->info[ann_idx].ext_npv_ref_ccy = this->info[ann_idx].ext_npv * fx_rate;
     }
+}
+
+// calculate NPV using multithreading
+std::thread myAnnuities::calc_npv_thrd(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm)
+{
+    std::thread worker(&myAnnuities::calc_npv, this, scn_no, crvs, fx, ref_ccy_nm);
+    return worker;
 }
 
 // write NPV into SQLite database file
@@ -769,27 +888,30 @@ void myAnnuities::write_npv(mySQLite &db, const int &scn_no, const std::string &
     dataFrame df;
 
     // add column names
-    df.col_nms = {"scn_no", "ent_nm", "parent_id", "contract_id", "ptf", .ext_acc_int", "npv", "acc_int_ref_ccy", "npv_ref_ccy"};
+    df.col_nms = {"scn_no", "ent_nm", "parent_id", "contract_id", "ptf", "ext_acc_int", "ext_npv", "int_npv", "ext_acc_int_ref_ccy", "ext_npv_ref_ccy", "int_npv_ref_ccy"};
 
     // add column data type
-    df.dtypes = {"INT", "CHAR", "CHAR", "CHAR", "CHAR", "FLOAT", "FLOAT", "FLOAT", "FLOAT"};
+    df.dtypes = {"INT", "CHAR", "CHAR", "CHAR", "CHAR", "FLOAT", "FLOAT", "FLOAT", "FLOAT", "FLOAT", "FLOAT"};
     
     // add values
     std::vector<std::vector<std::string>> values;
     std::vector<std::string> ann;
 
-    for (int idx = 0; idx < this->info.size(); idx++)
+    // go annuity by annuity
+    for (int ann_idx = 0; ann_idx < this->info.size(); ann_idx++)
     {
         ann.clear();
         ann.push_back(std::to_string(scn_no));
-        ann.push_back(this->info[idx].ent_nm);
-        ann.push_back(this->info[idx].parent_id);
-        ann.push_back(this->info[idx].contract_id);
-        ann.push_back(this->info[idx].ptf);
-        ann.push_back(std::to_string(this->info[idx].ext_acc_int));
-        ann.push_back(std::to_string(this->info[idx].npv));
-        ann.push_back(std::to_string(this->info[idx].ext_acc_int_ref_ccy));
-        ann.push_back(std::to_string(this->info[idx].npv_ref_ccy));
+        ann.push_back(this->info[ann_idx].ent_nm);
+        ann.push_back(this->info[ann_idx].parent_id);
+        ann.push_back(this->info[ann_idx].contract_id);
+        ann.push_back(this->info[ann_idx].ptf);
+        ann.push_back(std::to_string(this->info[ann_idx].ext_acc_int));
+        ann.push_back(std::to_string(this->info[ann_idx].ext_npv));
+        ann.push_back(std::to_string(this->info[ann_idx].int_npv));
+        ann.push_back(std::to_string(this->info[ann_idx].ext_acc_int_ref_ccy));
+        ann.push_back(std::to_string(this->info[ann_idx].ext_npv_ref_ccy));
+        ann.push_back(std::to_string(this->info[ann_idx].int_npv_ref_ccy));
         values.push_back(ann);
     }
     df.values = values;
@@ -798,10 +920,9 @@ void myAnnuities::write_npv(mySQLite &db, const int &scn_no, const std::string &
     myDataFrame tbl = myDataFrame(df);
 
     // delete old data based on scenario number, entity name and portfolio
-    std::string sql = "DELETE FROM bnd_npv WHERE scn_no = " + std::to_string(scn_no) + " AND ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';";
+    std::string sql = "DELETE FROM ann_npv WHERE scn_no = " + std::to_string(scn_no) + " AND ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';";
     db.exec(sql);
 
     // write dataframe into SQLite database file
-    db.upload_tbl(tbl, "bnd_npv", false);
+    db.upload_tbl(tbl, "ann_npv", false);
 }
-*/

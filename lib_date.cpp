@@ -146,10 +146,10 @@ static std::tuple<int, std::string> decompose_freq(const std::string &freq)
    return {freq_no, freq_type};
  }
 
-// create a std::vector of dates from start date to end date using time step of a given frequency
+// create a vector of dates from start date to end date using time step of a given frequency
 std::vector<myDate> create_date_serie(const std::string &date_str_begin, const std::string &date_str_end, const std::string &date_freq, const std::string &date_format)
 {
-    // create std::vector to hold date serie
+    // create vector to hold date serie
     std::vector<myDate> date_serie;
 
     //create date end and current date objects
@@ -163,7 +163,7 @@ std::vector<myDate> create_date_serie(const std::string &date_str_begin, const s
         date_current.add(date_freq);
     }
 
-    // return pointer to the std::vector with date serie
+    // return vector with date serie
     return date_serie;
 }
 

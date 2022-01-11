@@ -196,10 +196,12 @@ CREATE TABLE IF NOT EXISTS ann_npv
     parent_id VARCHAR(10) NOT NULL,
     contract_id VARCHAR(10) NOT NULL,
     ptf  VARCHAR(10) NOT NULL,
-    acc_int FLOAT NOT NULL,
-    npv FLOAT NOT NULL,
-    acc_int_ref_ccy FLOAT NOT NULL,
-    npv_ref_ccy FLOAT NOT NULL,
+    ext_acc_int FLOAT NOT NULL,
+    ext_npv FLOAT NOT NULL,
+    int_npv FLOAT NOT NULL,
+    ext_acc_int_ref_ccy FLOAT NOT NULL,
+    ext_npv_ref_ccy FLOAT NOT NULL,
+    int_npv_ref_ccy FLOAT NOT NULL,
     FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES ann_data(ent_nm, parent_id, contract_id, ptf)
     UNIQUE (scn_no, ent_nm, parent_id, contract_id, ptf)
 )

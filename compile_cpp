@@ -1,4 +1,4 @@
 echo $""
 echo $"COMPILING C++ CODE..."
-/usr/bin/g++ -fdiagnostics-color=always -O3 *.cpp -o ~/Documents/Programming/C++/FinMat/main -I ~/Documents/Programming/C++/sqlite_3.36.0/ -l sqlite3
+/usr/bin/g++ -pthread -fdiagnostics-color=always -O3 *.cpp -o ~/Documents/Programming/C++/FinMat/main -I ~/Documents/Programming/C++/sqlite_3.36.0/ -l sqlite3
 echo $"DONE!"

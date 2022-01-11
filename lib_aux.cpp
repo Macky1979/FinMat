@@ -3,6 +3,9 @@
 #include <ctime>
 #include <chrono>
 #include <stack>
+#include <vector>
+#include <stdexcept>
+#include "lib_aux.h"
 
 // global variable holding time elapsed between tic() and toc()
 std::chrono::time_point<std::chrono::high_resolution_clock> tictoc_begin;
@@ -82,4 +85,40 @@ std::string get_datestamp()
 
 	// return time string
 	return timeStr;
+}
+
+// split vector into several vectors of approximately same size => return indices which defines the new vectors
+std::vector<coordinates<int>> split_vector(const int &vector_length, const int &splits_no)
+{
+	// check that lenght of input vector is not lower than number of splits
+	if (vector_length < splits_no)
+	{
+		throw std::invalid_argument((std::string)__func__ + ": Length of the input vector cannot be shorter than number of splits!");
+	}
+
+	// get number of elements per sub
+	int elements_per_split = vector_length / splits_no;
+
+	// create a vector holding position indicies of the newly created vectors
+	std::vector<coordinates<int>> indicies;
+
+	// determine position indicies of vectors created by the split of the original one
+	int current_index = 0;
+	for (int split_idx = 0; split_idx < splits_no; split_idx++)
+	{
+		// determine lower and upper position indicies of one particular split
+		coordinates<int> index;
+		index.x = current_index;
+		current_index += elements_per_split;
+		index.y = current_index - 1;
+
+		// add the position indicies to the vector
+		indicies.push_back(index);
+	}
+
+	// place the last remaining elements to the last vector
+	indicies[splits_no - 1].y = vector_length - 1;
+
+	// return vector with position indicies
+	return indicies;
 }

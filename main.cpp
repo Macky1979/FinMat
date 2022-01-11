@@ -7,7 +7,7 @@
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
 #include "fin_fx.h"
-#include "fin_annuity.h"
+#include "fin_bond.h"
 
 int main()
 {
@@ -24,7 +24,7 @@ int main()
     std::string crv_def = "data/crv_def.csv";
     std::string interbcrv_eur = "data/curves/interbcrv_eur.csv";
     std::string spreadcrv_bef = "data/curves/spreadcrv_bef.csv";
-    std::string bnd_data = "data/ann_data.csv";
+    std::string bnd_data = "data/bnd_data.csv";
     std::string sql;
     myDataFrame * rslt = new myDataFrame();
     myDate calc_date = myDate(20211203);
@@ -60,10 +60,10 @@ int main()
     sql = read_sql(sql_file_nm, "crv_data");
     db.exec(sql);
 
-    sql = read_sql(sql_file_nm, "ann_data");
+    sql = read_sql(sql_file_nm, "bnd_data");
     db.exec(sql);
 
-    sql = read_sql(sql_file_nm, "ann_npv");
+    sql = read_sql(sql_file_nm, "bnd_npv");
     db.exec(sql);
 
     // delete old content in the tables
@@ -74,8 +74,8 @@ int main()
     db.exec("DELETE FROM dcm_def;");
     db.exec("DELETE FROM crv_def;");
     db.exec("DELETE FROM crv_data;");
-    db.exec("DELETE FROM ann_data;");
-    db.exec("DELETE FROM ann_npv;");
+    db.exec("DELETE FROM bnd_data;");
+    db.exec("DELETE FROM bnd_npv;");
 
     // create dataframes from .csv files and store them into database
     rslt->read(cnty_def, sep, quotes);
@@ -111,7 +111,7 @@ int main()
     rslt->clear();
 
     rslt->read(bnd_data, sep, quotes);
-    db.upload_tbl(*rslt, "ann_data", delete_old_data);
+    db.upload_tbl(*rslt, "bnd_data", delete_old_data);
     rslt->clear();
 
     // vacuum SQLite database file to avoid its excessive growth
@@ -125,28 +125,58 @@ int main()
     // load all curves
     myCurves crvs = myCurves(db, sql_file_nm, calc_date);
 
-    std::cout << get_timestamp() + " - initiating annuities..." << std::endl;
+    std::cout << get_timestamp() + " - initiating bonds..." << std::endl;
 
     // define entity and portfolio
     std::string ent_nm = "kbc";
-    std::string ptf = "ann";
+    std::string ptf = "bnd";
 
-    // load annuities
-    myAnnuities anns = myAnnuities(db, "SELECT * FROM ann_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
+    // load bonds
+    myBonds bnds = myBonds(db, "SELECT * FROM bnd_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
 
-    std::cout << get_timestamp() + " - evaluating annuities..." << std::endl;
-    
-    /*
-    // evaluate annuities
+    // define scenario number and reference currency to be used in valuation
     int scn_no = 1;
     std::string ref_ccy_nm = "EUR";
-    anns.calc_npv(scn_no, crvs, fx, ref_ccy_nm);
+
+    std::cout << get_timestamp() + " - evaluating bonds on a single core..." << std::endl;
+
+    // evaluate bonds using single core
+    bnds.calc_npv(scn_no, crvs, fx, ref_ccy_nm);
+
+    std::cout << get_timestamp() + " - evaluating bonds using multithreading..." << std::endl;
+
+    // evaluate annuties using multiple cores
+    int threads_no = 4;
+
+    std::cout << get_timestamp() + " -    spliting contracts..." << std::endl;
+
+    std::vector<myBonds> bnds_thrd = bnds.split(threads_no);
+
+    std::cout << get_timestamp() + " -    running individual threads..." << std::endl;
+
+    std::vector<std::thread> workers;
+    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    {
+        workers.emplace_back(bnds_thrd[thread_idx].calc_npv_thrd(scn_no, crvs, fx, ref_ccy_nm));
+    }
+
+    std::cout << get_timestamp() + " -    waiting for individual threads to finish..." << std::endl;
+
+    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    {
+        workers[thread_idx].join();
+    }
+
+    std::cout << get_timestamp() + " -    merging results..." << std::endl;
+
+    // merge results into a single vector
+    bnds.merge(bnds_thrd);
 
     std::cout << get_timestamp() + " - storing NPV into SQLite database file..." << std::endl;
 
     // store results
-    anns.write_npv(db, scn_no, ent_nm, ptf);
-    */
+    bnds.write_npv(db, scn_no, ent_nm, ptf);
+
     std::cout << get_timestamp() + " - closing SQLite database file..." << std::endl;
 
     // close connection to SQLite database file

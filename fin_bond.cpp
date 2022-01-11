@@ -10,13 +10,14 @@
 #include "fin_fx.h"
 #include "fin_date.h"
 #include "fin_bond.h"
+#include "lib_aux.h"
 
 /*
  * AUXILIARY FUNCTIONS
  */
 
 // extract vector of dates from vector of events
-static std::vector<myDate> extract_dates_from_events(const std::vector<event> &events, const std::string &type)
+static std::vector<myDate> extract_dates_from_events(const std::vector<bnd_event> &events, const std::string &type)
 {
     // create pointer to vector of dates
     std::vector<myDate> dates;
@@ -496,8 +497,8 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             myDate date2;
 
             // events
-            event evnt;
-            std::vector<event> events;
+            bnd_event evnt;
+            std::vector<bnd_event> events;
 
             // position index
             int pos_idx;
@@ -691,8 +692,8 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                                         (events[idx2].date_end.get_days_no() <= date2.get_days_no()))
                                     {
                                         events[idx].repricing_dates.emplace_back(events[idx2].date_end);
-                                        events[idx].par_nominals_begin.push_back(events[idx2].nominal_begin);
-                                        events[idx].par_nominals_end.push_back(events[idx2].nominal_end);
+                                        events[idx].par_nominals_begin.emplace_back(events[idx2].nominal_begin);
+                                        events[idx].par_nominals_end.emplace_back(events[idx2].nominal_end);
                                     }
                                 }
                            }
@@ -803,6 +804,63 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
  * OBJECT FUNCTIONS
  */
 
+// split the object
+std::vector<myBonds> myBonds::split(const int &threads_no)
+{
+
+    // determine position indicies of the newly created vectors
+    std::vector<coordinates<int>> indicies = split_vector(this->info.size(), threads_no);
+
+    // split original object myAnnuities into several smaller objects
+    std::vector<myBonds> bnds;
+    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    {
+        // determine the first and the last position index
+        std::vector<bnd_info>::const_iterator first = this->info.begin() + indicies[thread_idx].x;
+        std::vector<bnd_info>::const_iterator last = this->info.begin() + indicies[thread_idx].y + 1;
+
+        // extract bond information
+        std::vector<bnd_info> info(first, last);
+
+        // create new smaller object based on the position indicies
+        myBonds bnd(info);
+
+        // add the new object to the vector
+        bnds.emplace_back(bnd);
+    }
+
+    // release memory by clearing the original object
+    this->clear();
+
+    // return vector of objects
+    return bnds;
+}
+
+// merge several objects
+void myBonds::merge(std::vector<myBonds> &bnds)
+{
+    // pre-allocate memory
+    int final_vector_size = 0;
+    std::vector<bnd_info> info;
+    
+    for (int idx = 0; idx < bnds.size(); idx++)
+    {
+        final_vector_size += bnds[idx].info.size();
+    }
+
+    info.reserve(final_vector_size);
+
+    // merge individual vectors
+    for (int idx = 0; idx < bnds.size(); idx++)
+    {
+        info.insert(info.end(), bnds[idx].info.begin(), bnds[idx].info.end());
+        bnds[idx].clear(); // release memory by clearing individual objects
+    }
+
+    // copy merged vectors into the current object
+    this->info = info;
+}
+
 // calculate NPV
 void myBonds::calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm)
 {
@@ -810,94 +868,80 @@ void myBonds::calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, 
     std::vector<std::tuple<int, int>> scn_tenors;
 
     // go bond by bond
-    for (int idx = 0; idx < this->info.size(); idx++)
+    for (int bnd_idx = 0; bnd_idx < this->info.size(); bnd_idx++)
     {
-
         // calculate repricing rates for floating bonds
-        if (!this->info[idx].is_fixed)
+        if (!this->info[bnd_idx].is_fixed)
         {
             // go event by event
-            for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+            for (int idx = 0; idx < this->info[bnd_idx].events.size(); idx++)
             {
                 // coupon is already fixed
-                if (this->info[idx].events[idx2].is_cpn_fixed)
+                if (this->info[bnd_idx].events[idx].is_cpn_fixed | !this->info[bnd_idx].events[idx].fix_flg)
                 {
-                    // re-pricing frequency could be of lower frequency than
-                    // coupon frequency => coupon could be paid out every
-                    // 6M but repricing could take place every 1Y => we might
-                    // take fixed coupon from the previous event
-                    if (idx2 > 0)
+                    if (idx > 0)
                     {
-                        this->info[idx].events[idx2].cpn = this->info[idx].events[idx2 - 1].cpn;
+                        this->info[bnd_idx].events[idx].cpn = this->info[bnd_idx].events[idx - 1].cpn;
                     }
-                }
-                // coupon rate is not yet fixed but will be set in line with the previous coupon
-                // period; could occur if e.g coupon period is 6M and repricing period is 1Y
-                else if (!this->info[idx].events[idx2].fix_flg)
-                {
-                    this->info[idx].events[idx2].cpn = this->info[idx].events[idx2 - 1].cpn;
                 }
                 // calculate forward rate / par rate for unfixed coupon rates
                 else
                 {
                     // prepare vector with scenario number and tenors
                     scn_tenors.clear();
-                    for (int idx3 = 0; idx3 < this->info[idx].events[idx2].repricing_dates.size(); idx3++)
+                    for (int idx2 = 0; idx2 < this->info[bnd_idx].events[idx].repricing_dates.size(); idx2++)
                     {
-                        scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[idx].events[idx2].repricing_dates[idx3].get_date_int()));
+                        scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[bnd_idx].events[idx].repricing_dates[idx2].get_date_int()));
                     }
 
                     // apply forward rate
-                    if (this->info[idx].fix_type.compare("fwd") == 0)
+                    if (this->info[bnd_idx].fix_type.compare("fwd") == 0)
                     {
                         // get forward rate
-                        std::vector<double> fwds = crvs.get_fwd_rate(this->info[idx].crv_fwd, scn_tenors, this->info[idx].dcm);
+                        std::vector<double> fwds = crvs.get_fwd_rate(this->info[bnd_idx].crv_fwd, scn_tenors, this->info[bnd_idx].dcm);
 
                         // use the forward rate as a coupon rate
-                        this->info[idx].events[idx2].cpn = fwds[0];
+                        this->info[bnd_idx].events[idx].cpn = fwds[0];
                     }
                     // apply par-rate
                     else
                     {
                         // get par-rate
-                        int par_step = this->info[idx].events[idx2].repricing_dates.size() - 1;
-                        std::vector<double> pars = crvs.get_par_rate(this->info[idx].crv_fwd, scn_tenors, this->info[idx].events[idx2].par_nominals_begin, this->info[idx].events[idx2].par_nominals_end, par_step, this->info[idx].dcm);
+                        int par_step = this->info[bnd_idx].events[idx].repricing_dates.size() - 1;
+                        std::vector<double> pars = crvs.get_par_rate(this->info[bnd_idx].crv_fwd, scn_tenors, this->info[bnd_idx].events[idx].par_nominals_begin, this->info[bnd_idx].events[idx].par_nominals_end, par_step, this->info[bnd_idx].dcm);
 
                         // user the par-rate as a coupon rate
-                        this->info[idx].events[idx2].cpn = pars[0];
+                        this->info[bnd_idx].events[idx].cpn = pars[0];
                     }
 
                     // apply multiplier and spread
-                    this->info[idx].events[idx2].cpn = this->info[idx].events[idx2].cpn * this->info[idx].rate_mult + this->info[idx].rate_add;
+                    this->info[bnd_idx].events[idx].cpn = this->info[bnd_idx].events[idx].cpn * this->info[bnd_idx].rate_mult + this->info[bnd_idx].rate_add;
                 }
             }
 
             // calculate coupon payment and cash-flow
-            for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+            for (int idx = 0; idx < this->info[bnd_idx].events.size(); idx++)
             {
-                this->info[idx].events[idx2].cpn_payment = this->info[idx].events[idx2].nominal_begin * this->info[idx].events[idx2].cpn * this->info[idx].events[idx2].cpn_year_frac;
-                this->info[idx].events[idx2].cf = this->info[idx].events[idx2].cpn_payment + this->info[idx].events[idx2].amort_payment;
+                this->info[bnd_idx].events[idx].cpn_payment = this->info[bnd_idx].events[idx].nominal_begin * this->info[bnd_idx].events[idx].cpn * this->info[bnd_idx].events[idx].cpn_year_frac;
+                this->info[bnd_idx].events[idx].cf = this->info[bnd_idx].events[idx].cpn_payment + this->info[bnd_idx].events[idx].amort_payment;
             }
         }
 
         // calculate discount factors and total bond NPV
-        this->info[idx].npv = 0.0;
-        // crv_disc = crvs.crv[this->info[idx].crv_disc]; // bottleneck
-
-        for (int idx2 = 0; idx2 < this->info[idx].events.size(); idx2++)
+        for (int idx = 0; idx < this->info[bnd_idx].events.size(); idx++)
         {
             // prepare vector with scenario number and tenors
             std::vector<std::tuple<int, int>> scn_tenors;
-            scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[idx].events[idx2].date_end.get_date_int()));
+            scn_tenors.push_back(std::tuple<int, int>(scn_no, this->info[bnd_idx].events[idx].date_end.get_date_int()));
             
             // get discounting factor
-            std::vector<double> dfs = crvs.get_df(this->info[idx].crv_disc, scn_tenors);
+            std::vector<double> dfs = crvs.get_df(this->info[bnd_idx].crv_disc, scn_tenors);
 
             // store discount factor
-            this->info[idx].events[idx2].df = dfs[0];
+            this->info[bnd_idx].events[idx].df = dfs[0];
 
             // update NPV
-            this->info[idx].npv += this->info[idx].events[idx2].cf * this->info[idx].events[idx2].df;
+            this->info[bnd_idx].npv += this->info[bnd_idx].events[idx].cf * this->info[bnd_idx].events[idx].df;
 
         }
 
@@ -905,10 +949,17 @@ void myBonds::calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, 
         std::tuple<int, std::string> scn_ccy = std::tuple<int, std::string>(scn_no, ref_ccy_nm);
         double fx_rate = fx.get_fx(scn_ccy);
 
-        this->info[idx].acc_int_ref_ccy = this->info[idx].acc_int * fx_rate;
-        this->info[idx].npv_ref_ccy = this->info[idx].npv * fx_rate;
+        this->info[bnd_idx].acc_int_ref_ccy = this->info[bnd_idx].acc_int * fx_rate;
+        this->info[bnd_idx].npv_ref_ccy = this->info[bnd_idx].npv * fx_rate;
 
     }
+}
+
+// calculate NPV using multithreading
+std::thread myBonds::calc_npv_thrd(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm)
+{
+    std::thread worker(&myBonds::calc_npv, this, scn_no, crvs, fx, ref_ccy_nm);
+    return worker;
 }
 
 // write NPV into SQLite database file
@@ -927,18 +978,19 @@ void myBonds::write_npv(mySQLite &db, const int &scn_no, const std::string &ent_
     std::vector<std::vector<std::string>> values;
     std::vector<std::string> bnd;
 
-    for (int idx = 0; idx < this->info.size(); idx++)
+    // go bond by bond
+    for (int bnd_idx = 0; bnd_idx < this->info.size(); bnd_idx++)
     {
         bnd.clear();
         bnd.push_back(std::to_string(scn_no));
-        bnd.push_back(this->info[idx].ent_nm);
-        bnd.push_back(this->info[idx].parent_id);
-        bnd.push_back(this->info[idx].contract_id);
-        bnd.push_back(this->info[idx].ptf);
-        bnd.push_back(std::to_string(this->info[idx].acc_int));
-        bnd.push_back(std::to_string(this->info[idx].npv));
-        bnd.push_back(std::to_string(this->info[idx].acc_int_ref_ccy));
-        bnd.push_back(std::to_string(this->info[idx].npv_ref_ccy));
+        bnd.push_back(this->info[bnd_idx].ent_nm);
+        bnd.push_back(this->info[bnd_idx].parent_id);
+        bnd.push_back(this->info[bnd_idx].contract_id);
+        bnd.push_back(this->info[bnd_idx].ptf);
+        bnd.push_back(std::to_string(this->info[bnd_idx].acc_int));
+        bnd.push_back(std::to_string(this->info[bnd_idx].npv));
+        bnd.push_back(std::to_string(this->info[bnd_idx].acc_int_ref_ccy));
+        bnd.push_back(std::to_string(this->info[bnd_idx].npv_ref_ccy));
         values.push_back(bnd);
     }
     df.values = values;

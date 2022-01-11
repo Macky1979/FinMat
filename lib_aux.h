@@ -1,12 +1,14 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 /*
 #include <iostream>
 #include <string>
 #include <thread>
 #include <chrono>
+#include <vector>
 #include "lib_aux.h"
 
 int main()
@@ -29,11 +31,23 @@ int main()
     // date stamp
     std::cout << "date stamp: " + get_datestamp() << std::endl;
 
+    // vector split
+    int vector_length = 1005;
+    int splits_no = 4;
+    std::vector<coordinates<int>> indicies = split_vector(vector_length, splits_no);
+
     // everything OK
     return 0;
-
 }
 */
+
+// co-ordinates structure
+template <typename T>
+struct coordinates
+{
+    T x;
+    T y;
+};
 
 // convert string to an upper case
 std::string to_upper(const std::string &input_str);
@@ -52,3 +66,6 @@ std::string get_timestamp();
 
 // implementation of datestamp
 std::string get_datestamp();
+
+// split vector into several vectors of approximately same size => return indices which defines the new vectors
+std::vector<coordinates<int>> split_vector(const int &vector_length, const int &splits_no);
