@@ -1,189 +1,77 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include <sqlite3.h>
-#include <memory>
-#include "lib_aux.h"
-#include "lib_dataframe.h"
-#include "lib_sqlite.h"
-#include "fin_fx.h"
-#include "fin_bond.h"
+#include <tuple>
+#include "lib_lininterp.h"
 
 int main()
 {
-    std::cout << get_timestamp() + " - loading data..." << std::endl;
+    /*
+     * 1D linear interpolation
+     */
 
-    // variables
-    const char * db_file_nm = "data/finmat.db";
-    std::string sql_file_nm = "data/finmat.sql";
-    std::string cnty_def = "data/cnty_def.csv";
-    std::string ccy_def = "data/ccy_def.csv";
-    std::string ccy_data = "data/ccy_data.csv";
-    std::string freq_def = "data/freq_def.csv";
-    std::string dcm_def = "data/dcm_def.csv";
-    std::string crv_def = "data/crv_def.csv";
-    std::string interbcrv_eur = "data/curves/interbcrv_eur.csv";
-    std::string spreadcrv_bef = "data/curves/spreadcrv_bef.csv";
-    std::string bnd_data = "data/bnd_data.csv";
-    std::string sql;
-    myDataFrame * rslt = new myDataFrame();
-    myDate calc_date = myDate(20211203);
-    std::string sep = ",";
-    bool quotes = false;
-    bool read_only;
-    int wait_max_seconds = 10;
-    bool delete_old_data = false;
+    // pointer to vector holding the interpolated figures
+    std::vector<double> * Y1 = new std::vector<double>();
 
-    // create SQLite object and open connection to SQLite database file in read-write mode
-    read_only = false;
-    mySQLite db(db_file_nm, read_only, wait_max_seconds);
+    // x and y are supposed to be orderd in ascending order
+    std::vector<double> x1 = {0, 1, 2, 3, 4, 5}; 
+    std::vector<double> y1 = {0, 1, 3, 5, 6, 7};
+    std::vector<double> X1 = {-1, 1, 2, 8, 2.5, 1./3};
 
-    // create tables in SQLite database file if they do not exist
-    sql = read_sql(sql_file_nm, "cnty_def");
-    db.exec(sql);
+    // create interpolation object and interpolate
+    myLinInterp interp(x1, y1);
+    Y1 = interp.eval(X1);
 
-    sql = read_sql(sql_file_nm, "ccy_def");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "ccy_data");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "freq_def");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "dcm_def");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "crv_def");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "crv_data");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "bnd_data");
-    db.exec(sql);
-
-    sql = read_sql(sql_file_nm, "bnd_npv");
-    db.exec(sql);
-
-    // delete old content in the tables
-    db.exec("DELETE FROM cnty_def;");
-    db.exec("DELETE FROM ccy_def;");
-    db.exec("DELETE FROM ccy_data;");
-    db.exec("DELETE FROM freq_def;");
-    db.exec("DELETE FROM dcm_def;");
-    db.exec("DELETE FROM crv_def;");
-    db.exec("DELETE FROM crv_data;");
-    db.exec("DELETE FROM bnd_data;");
-    db.exec("DELETE FROM bnd_npv;");
-
-    // create dataframes from .csv files and store them into database
-    rslt->read(cnty_def, sep, quotes);
-    db.upload_tbl(*rslt, "cnty_def", delete_old_data);
-    rslt->clear();
-
-    rslt->read(ccy_def, sep, quotes);
-    db.upload_tbl(*rslt, "ccy_def", delete_old_data);
-    rslt->clear();
-    
-    rslt->read(ccy_data, sep, quotes);
-    db.upload_tbl(*rslt, "ccy_data", delete_old_data);
-    rslt->clear();
-
-    rslt->read(freq_def, sep, quotes);
-    db.upload_tbl(*rslt, "freq_def", delete_old_data);
-    rslt->clear();
-    
-    rslt->read(dcm_def, sep, quotes);
-    db.upload_tbl(*rslt, "dcm_def", delete_old_data);
-    rslt->clear();
-
-    rslt->read(crv_def, sep, quotes);
-    db.upload_tbl(*rslt, "crv_def", delete_old_data);
-    rslt->clear();
-
-    rslt->read(interbcrv_eur, sep, quotes);
-    db.upload_tbl(*rslt, "crv_data", delete_old_data);
-    rslt->clear();
-   
-    rslt->read(spreadcrv_bef, sep, quotes);
-    db.upload_tbl(*rslt, "crv_data", delete_old_data);
-    rslt->clear();
-
-    rslt->read(bnd_data, sep, quotes);
-    db.upload_tbl(*rslt, "bnd_data", delete_old_data);
-    rslt->clear();
-
-    // vacuum SQLite database file to avoid its excessive growth
-    db.vacuum();
-
-    std::cout << get_timestamp() + " - initiating curves and FX rates..." << std::endl;
-
-    // load FX rates
-    myFx fx = myFx(db, sql_file_nm);
-
-    // load all curves
-    myCurves crvs = myCurves(db, sql_file_nm, calc_date);
-
-    std::cout << get_timestamp() + " - initiating bonds..." << std::endl;
-
-    // define entity and portfolio
-    std::string ent_nm = "kbc";
-    std::string ptf = "bnd";
-
-    // load bonds
-    myBonds bnds = myBonds(db, "SELECT * FROM bnd_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
-
-    // define scenario number and reference currency to be used in valuation
-    int scn_no = 1;
-    std::string ref_ccy_nm = "EUR";
-
-    std::cout << get_timestamp() + " - evaluating bonds on a single core..." << std::endl;
-
-    // evaluate bonds using single core
-    bnds.calc_npv(scn_no, crvs, fx, ref_ccy_nm);
-
-    std::cout << get_timestamp() + " - evaluating bonds using multithreading..." << std::endl;
-
-    // evaluate annuties using multiple cores
-    int threads_no = 4;
-
-    std::cout << get_timestamp() + " -    spliting contracts..." << std::endl;
-
-    std::vector<myBonds> bnds_thrd = bnds.split(threads_no);
-
-    std::cout << get_timestamp() + " -    running individual threads..." << std::endl;
-
-    std::vector<std::thread> workers;
-    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
+    // print out results
+    std::cout << "1D INTERPOLATION" << std::endl;
+    for (int i = 0; i < Y1->size(); i++)
     {
-        workers.emplace_back(bnds_thrd[thread_idx].calc_npv_thrd(scn_no, crvs, fx, ref_ccy_nm));
+        std::cout << "Y[" + std::to_string(i) + "] = " + std::to_string((*Y1)[i]) << std::endl;
     }
+    std::cout << "----------------" << std::endl;
 
-    std::cout << get_timestamp() + " -    waiting for individual threads to finish..." << std::endl;
+    // delete pointer
+    delete[] Y1;
 
-    for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
-    {
-        workers[thread_idx].join();
-    }
+    /*
+     * 2D linear interpolation
+     */
 
-    std::cout << get_timestamp() + " -    merging results..." << std::endl;
+    // pointer to vector holding the interpolated figures
+    std::vector<double> * Z2 = new std::vector<double>();
 
-    // merge results into a single vector
-    bnds.merge(bnds_thrd);
-
-    std::cout << get_timestamp() + " - storing NPV into SQLite database file..." << std::endl;
-
-    // store results
-    bnds.write_npv(db, scn_no, ent_nm, ptf);
-
-    std::cout << get_timestamp() + " - closing SQLite database file..." << std::endl;
-
-    // close connection to SQLite database file
-    db.close();
-
-    std::cout << get_timestamp() + " - done!" << std::endl;
+    // vectors x, y and z are supposed to be orderd in ascending order
+    std::vector<double> x2 = {2.0, 2.0, 2.0, 2.0, 2.0,
+                              3.0, 3.0, 3.0, 3.0, 3.0,
+                              4.0, 4.0, 4.0, 4.0, 4.0}; // x - maturity in years
     
+    std::vector<double> y2 = {0.10, 0.25, 0.50, 0.75, 0.90,
+                              0.10, 0.25, 0.50, 0.75, 0.90,
+                              0.10, 0.25, 0.50, 0.75, 0.90};  // option delta
+
+    std::vector<double> z2 = {0.0723, 0.0635, 0.0596, 0.0557, 0.0518,  // 2Y volatility
+                              0.0812, 0.0717, 0.0650, 0.0583, 0.0516,  // 3Y volatility
+                              0.0887, 0.0782, 0.0706, 0.0630, 0.0554}; // 5Y volatility
+
+    // x and y co-ordinates for which volatility should be interpolated
+    std::vector<double> X2 = {2.00, 3.00, 2.25, 2.25};
+    std::vector<double> Y2 = {0.75, 0.60, 0.25, 0.60};
+
+    // create interpolation object and interpolate
+    myLinInterp2D interp2D(x2, y2, z2);
+    Z2 = interp2D.eval(X2, Y2);
+
+    // print out results
+    std::cout << "2D INTERPOLATION" << std::endl;
+    for (int i = 0; i < Z2->size(); i++)
+    {
+        std::cout << "Z[" + std::to_string(i) + "] = " + std::to_string((*Z2)[i]) << std::endl;
+    }
+    std::cout << "----------------" << std::endl;
+
+    // delete pointer
+    delete[] Z2;
+
     // everything OK
     return 0;
 }

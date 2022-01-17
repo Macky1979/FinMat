@@ -68,6 +68,9 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "shared_mutex": "cpp",
-        "cfenv": "cpp"
+        "cfenv": "cpp",
+        "codecvt": "cpp",
+        "optional": "cpp",
+        "source_location": "cpp"
     }
 }
