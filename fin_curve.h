@@ -1,11 +1,3 @@
-# pragma once
-
-#include <string>
-#include <map>
-#include <tuple>
-#include "lib_sqlite.h"
-#include "lib_date.h"
-
 /*
 #include <string>
 #include <iostream>
@@ -165,6 +157,14 @@ int main()
     return 0;
 }
 */
+
+# pragma once
+
+#include <string>
+#include <map>
+#include <tuple>
+#include "lib_sqlite.h"
+#include "lib_date.h"
 
 // tenor structure
 struct tenor_def

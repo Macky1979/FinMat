@@ -59,7 +59,7 @@ myCurve::myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::
         throw std::invalid_argument((std::string)__func__ + ": " + this->crv_type + " is not a supported date std::string format!");
     }
 
-    // prepare std::vector of tenors for which we want to interporate the curve
+    // prepare vector of tenors for which we want to interporate the curve
     std::vector<double> tenors;
     std::vector<myDate> tenor_dates;
     for (double tenor = 1; tenor < 120 * 365 + 1; tenor++)
@@ -83,20 +83,19 @@ myCurve::myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::
         {
             // interpolate rates
             myLinInterp interp(_tenors, _rates);
-            std::vector<double> * rates = new std::vector<double>();
-            rates = interp.eval(tenors);
+            std::vector<double> rates = interp.eval(tenors);
 
             // go scenario line by line
-            for (int idx2 = 0; idx2 < rates->size(); idx2++)
+            for (int idx2 = 0; idx2 < rates.size(); idx2++)
             {
-                // create a std::tuple of scenario and tenor date integer in yyyymmdd format
+                // create a tuple of scenario and tenor date integer in yyyymmdd format
                 std::tuple<int, int> scn_tenor = {scn_no, tenor_dates[idx2].get_date_int()};
 
                 // create tenor and store rate into it
                 tenor_def tenor;
                 tenor.tenor = tenors[idx2];
                 tenor.tenor_date = tenor_dates[idx2];
-                tenor.rate = (*rates)[idx2];
+                tenor.rate = rates[idx2];
 
                 // calculate year fraction
                 tenor.year_frac = day_count_method(this->calc_date, tenor.tenor_date, this->dcm);

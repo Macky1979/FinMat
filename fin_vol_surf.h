@@ -1,3 +1,4 @@
+/*
 #include <string>
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
@@ -84,3 +85,59 @@ int main()
     // everything OK
     return 0;
 }
+*/
+
+# pragma once
+
+#include <string>
+#include <map>
+#include <tuple>
+#include "lib_sqlite.h"
+#include "lib_date.h"
+#include "lib_lininterp.h"
+
+// volatility surface structure
+struct vol_surf_def
+{
+    std::vector<double> maturities;
+    std::vector<double> strikes;
+    std::vector<double> volatilities;
+};
+
+// define volatility surface class
+class myVolSurface
+{
+    public:
+        // object variables
+        std::string vol_surf_nm;
+        std::string ccy_nm;
+        std::string vol_surf_type;
+        std::string underlying;
+        std::map<int, vol_surf_def> vol_surf; // map based on scenario number
+    
+        // object constructors
+        myVolSurface(const mySQLite &db, const std::string &sql_file_nm, const std::string &vol_surf_nm);
+
+        // object destructors
+        ~myVolSurface(){};
+
+        // object function declarations
+        std::vector<double> get_vols(const int &scn_no, const std::vector<double> &maturities, const std::vector<double> &strikes) const;
+};
+
+// define volatility surfaces class
+class myVolSurfaces
+{
+    public:
+        // object variables
+        std::map<std::string, myVolSurface> vol_surf; // map based on volatility surface name
+
+        // object constructors
+        myVolSurfaces(const mySQLite &db, const std::string &sql_file_nm);
+
+        // object destructors
+        ~myVolSurfaces(){};
+
+        // object function declarations
+        std::vector<double> get_vols(const std::string &vol_surf_nm, const int &scn_no, const std::vector<double> &maturities, const std::vector<double> &strikes) const;
+};

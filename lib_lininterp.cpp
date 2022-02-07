@@ -95,10 +95,10 @@ myLinInterp2D::myLinInterp2D(const std::vector<double> &x, std::vector<double> &
  */
 
 // 1D linear interpolation
-std::vector<double> * myLinInterp::eval(const std::vector<double> &X)
+std::vector<double> myLinInterp::eval(const std::vector<double> &X)
 {
     // create vector to hold interpolated values
-    std::vector<double> * Y = new std::vector<double>[X.size()];
+    std::vector<double> Y;
 
     // X vector for which Y vector is to be interpolated
     this->X = X;
@@ -109,13 +109,13 @@ std::vector<double> * myLinInterp::eval(const std::vector<double> &X)
         // check lower boundary
         if (this->X[i] <= this->x[0])
         {
-            Y->push_back(this->y[0]);
+            Y.push_back(this->y[0]);
             continue;
         }
         // check upper boundary
         else if (this->X[i] >= this->x[this->x.size() - 1])
         {
-            Y->push_back(this->y[this->y.size() - 1]);
+            Y.push_back(this->y[this->y.size() - 1]);
             continue;
         }
         // interior points
@@ -127,13 +127,13 @@ std::vector<double> * myLinInterp::eval(const std::vector<double> &X)
                 // check equality
                 if (this->X[i] == this->x[j])
                 {
-                    Y->push_back(this->y[j]);
+                    Y.push_back(this->y[j]);
                     break;
                 }
                 // interpolate from the two nearest points
                 else if ((this->X[i] > this->x[j]) && (this->X[i] < this->x[j + 1]))
                 {
-                    Y->push_back(this->y[j] + (this->y[j + 1] - this->y[j]) / (this->x[j + 1] - this->x[j]) * (this->X[i] - this->x[j]));
+                    Y.push_back(this->y[j] + (this->y[j + 1] - this->y[j]) / (this->x[j + 1] - this->x[j]) * (this->X[i] - this->x[j]));
                     break;
                 }
 
@@ -147,7 +147,7 @@ std::vector<double> * myLinInterp::eval(const std::vector<double> &X)
 }
 
 // 2D linear interpolation
-std::vector<double> * myLinInterp2D::eval(const std::vector<double> &X, const std::vector<double> &Y)
+std::vector<double> myLinInterp2D::eval(const std::vector<double> &X, const std::vector<double> &Y)
 {
     // check that vectors X and Y are of the same size, i.e. there is one X for each Y
     if (X.size() != Y.size())
@@ -156,7 +156,7 @@ std::vector<double> * myLinInterp2D::eval(const std::vector<double> &X, const st
     }    
 
     // create vector to hold interpolated values
-    std::vector<double> * Z = new std::vector<double>[X.size()];
+    std::vector<double> Z;
 
     // XY vector couple for which Z vector is to be interpolated
     this->X = X;
@@ -228,7 +228,7 @@ std::vector<double> * myLinInterp2D::eval(const std::vector<double> &X, const st
         }
 
         // add the interpolate z into a vector
-        Z->push_back(z_aux);
+        Z.push_back(z_aux);
     }
  
     // return interpolated values
