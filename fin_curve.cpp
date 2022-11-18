@@ -62,7 +62,7 @@ myCurve::myCurve(const mySQLite &db, const std::string &sql_file_nm, const std::
     // prepare vector of tenors for which we want to interporate the curve
     std::vector<double> tenors;
     std::vector<myDate> tenor_dates;
-    for (double tenor = 1; tenor < 120 * 365 + 1; tenor++)
+    for (double tenor = 1; tenor < (120 * 365 + 1); tenor++)
     {
         tenors.push_back(tenor);
         myDate tenor_date = this->calc_date;

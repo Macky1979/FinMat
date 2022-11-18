@@ -1,0 +1,4 @@
+ent_nm,parent_id,contract_id,issuer_id,ptf,account,isin,rtg,comments,cap_floor_type,fix_type,ccy_nm,nominal,value_date,maturity_date,dcm,cap_rate,cap_vol_surf_nm,floor_rate,floor_vol_surf_nm,first_int_date,int_freq,first_fix_date,fix_freq,first_amort_date,amort_freq,amort,crv_disc,crv_fwd
+CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,FLOAT,INT,INT,CHAR,FLOAT,CHAR,FLOAT,CHAR,INT,CHAR,INT,CHAR,INT,CHAR,FLOAT,CHAR,CHAR
+kbc,0,0,n/a,cap_floor,/assets/caps_floors,COL01,n/a,n/a,col,fwd,EUR,1000,20210630,20310630,ACT_360,0.02,CAP_VOL_EUR,0.005,FLR_VOL_EUR,20211230,6M,20211230,6M,,,,INTERBCRV.EUR,INTERBCRV.EUR
+kbc,1,0,n/a,cap_floor,/assets/caps_floors,COL02,n/a,n/a,col,par,EUR,1000,20210630,20310630,ACT_360,0.02,CAP_VOL_EUR,0.005,FLR_VOL_EUR,20211230,6M,20220630,1Y,20220630,2Y,100,INTERBCRV.EUR,INTERBCRV.EUR

@@ -190,14 +190,17 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             // annuity ISIN
             ann.isin = rslt->tbl.values[ann_idx][6];
 
+            // annuity rating
+            ann.rtg = rslt->tbl.values[ann_idx][7];
+
             // comments
-            ann.comments = rslt->tbl.values[ann_idx][7];
+            ann.comments = rslt->tbl.values[ann_idx][8];
 
             // annuity type, e.g. ANN
-            ann.ann_type = rslt->tbl.values[ann_idx][8];
+            ann.ann_type = rslt->tbl.values[ann_idx][9];
 
             // fixing type - "par" for a floating annuity vs. "fix" for a fixed annuity
-            aux = rslt->tbl.values[ann_idx][9];
+            aux = rslt->tbl.values[ann_idx][10];
             if ((aux.compare("par") != 0) && (aux.compare("fix") != 0))
             {
                 ann.wrn_msg += "unsupported fixing type " + aux + ";";
@@ -214,17 +217,14 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             }
             ann.fix_type = aux;
 
-            // annuity rating
-            ann.rtg = rslt->tbl.values[ann_idx][10];
-
             //  annuity currency, e.g. EUR, CZK
             ann.ccy_nm = rslt->tbl.values[ann_idx][11];
 
             // annuity nominal
             ann.nominal = stod(rslt->tbl.values[ann_idx][12]);
 
-            // annuity deal date, i.e. date when the annuity entered / will enter into books
-            ann.deal_date = myDate(stoi(rslt->tbl.values[ann_idx][13]));
+            // value date
+            ann.value_date = myDate(stoi(rslt->tbl.values[ann_idx][13]));
 
             // annuity maturity date
             ann.maturity_date = myDate(stoi(rslt->tbl.values[ann_idx][14]));
@@ -260,35 +260,12 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             {
                 ann.int_rate = stod(aux);
             }
-             
-            // multiplier applied on internal repricing rate
-            aux = rslt->tbl.values[ann_idx][17];
-            if (aux.compare("") == 0) // rate multiplier not provided
-            {
-                ann.wrn_msg += "rate multiplier not provided for a floating annuity;";
-                ann.rate_mult = 1.0;
-            }
-            else // rate multiplied provided
-            {
-                ann.rate_mult = stod(aux);
-            }
-
-            // spread to be added to a repricing rate
-            aux = rslt->tbl.values[ann_idx][18];
-            if (aux.compare("") == 0) // spread not specified
-            {
-                ann.wrn_msg += "repricing spread not provided for a flating annuity;";
-            }
-            else // spread specified
-            {
-                ann.rate_add = stod(aux);
-            }
 
             // first annuity date
-            ann.first_ann_date =  myDate(stoi(rslt->tbl.values[ann_idx][19]));
+            ann.first_ann_date =  myDate(stoi(rslt->tbl.values[ann_idx][17]));
 
             // annuity frequency
-            ann.ann_freq = rslt->tbl.values[ann_idx][20];
+            ann.ann_freq = rslt->tbl.values[ann_idx][18];
 
             if (ann.ann_freq.compare("1M") == 0)
             {
@@ -312,7 +289,7 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             }
 
             // first fixing date of a floating annuity
-            aux = rslt->tbl.values[ann_idx][21];
+            aux = rslt->tbl.values[ann_idx][19];
             if (aux.compare("") == 0) // fixing date not provided
             {
                 if (!ann.is_fixed) // floating annuity
@@ -336,7 +313,7 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             }
             
             // fixing frequency
-            aux = rslt->tbl.values[ann_idx][22];
+            aux = rslt->tbl.values[ann_idx][20];
             if (aux.compare("") == 0) // fixing frequency not provided
             {
                 if (!ann.is_fixed) // floating annuity
@@ -363,7 +340,30 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
                     ann.fix_freq = "";
                 }
             }
-          
+
+            // multiplier applied on internal repricing rate
+            aux = rslt->tbl.values[ann_idx][21];
+            if (aux.compare("") == 0) // rate multiplier not provided
+            {
+                ann.wrn_msg += "rate multiplier not provided for a floating annuity;";
+                ann.rate_mult = 1.0;
+            }
+            else // rate multiplied provided
+            {
+                ann.rate_mult = stod(aux);
+            }
+
+            // spread to be added to a repricing rate
+            aux = rslt->tbl.values[ann_idx][22];
+            if (aux.compare("") == 0) // spread not specified
+            {
+                ann.wrn_msg += "repricing spread not provided for a flating annuity;";
+            }
+            else // spread specified
+            {
+                ann.rate_add = stod(aux);
+            }
+
             // discounting curve
             ann.crv_disc = rslt->tbl.values[ann_idx][23];
 
@@ -395,20 +395,20 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
 
         // perform other sanity checks
        
-            // deal date
-            if (ann.deal_date.get_days_no() > ann.maturity_date.get_days_no())
+            // value date
+            if (ann.value_date.get_days_no() > ann.maturity_date.get_days_no())
             {
-                ann.wrn_msg += "deal date cannot by greater than maturity date;";
-                ann.deal_date = ann.maturity_date;
+                ann.wrn_msg += "value date cannot by greater than maturity date;";
+                ann.value_date = ann.maturity_date;
             }
 
             // first annuity date
-            if (ann.first_ann_date.get_days_no() <= ann.deal_date.get_days_no())
+            if (ann.first_ann_date.get_days_no() <= ann.value_date.get_days_no())
             {
-                ann.wrn_msg += "first annuity date cannot be lower or equal to deal date;";
-                ann.first_ann_date = ann.deal_date;
+                ann.wrn_msg += "first annuity date cannot be lower or equal to value date;";
+                ann.first_ann_date = ann.value_date;
                 ann.first_ann_date.add(ann.ann_freq);
-                while (ann.first_ann_date.get_days_no() < ann.deal_date.get_days_no())
+                while (ann.first_ann_date.get_days_no() < ann.value_date.get_days_no())
                 {
                     ann.first_ann_date.add(ann.ann_freq);
                 }
@@ -423,9 +423,9 @@ myAnnuities::myAnnuities(const mySQLite &db, const std::string &sql, const myDat
             // first fixing date
             if (!ann.is_fixed)
             {
-                if (ann.first_fix_date.get_days_no() <= ann.deal_date.get_days_no())
+                if (ann.first_fix_date.get_days_no() <= ann.value_date.get_days_no())
                 {
-                    ann.wrn_msg += "first fixing date cannot be lower or equal to deal date;";
+                    ann.wrn_msg += "first fixing date cannot be lower or equal to value date;";
                     ann.first_fix_date = ann.first_ann_date;
                 }
 

@@ -105,11 +105,11 @@ CREATE TABLE IF NOT EXISTS vol_surf_data
 (
     vol_surf_nm CHAR(3) NOT NULL,
     scn_no INT NOT NULL CHECK (scn_no > 0),
-    maturity FLOAT NOT NULL CHECK (maturity >= 0),
+    tenor FLOAT NOT NULL CHECK (tenor >= 0),
     strike FLOAT NOT NULL,
     volatility FLOAT NOT NULL CHECK (volatility > 0),
     FOREIGN KEY (vol_surf_nm) REFERENCES vol_surf_def(vol_surf_nm),
-    UNIQUE (vol_surf_nm, scn_no, maturity, strike)
+    UNIQUE (vol_surf_nm, scn_no, tenor, strike)
 );
 
 ###!load_all_vol_surf_nms - load list of all volatility surfaces
@@ -119,7 +119,7 @@ SELECT vol_surf_nm FROM vol_surf_def;
 SELECT vol_surf_nm, ccy_nm, vol_surf_type, underlying FROM vol_surf_def WHERE vol_surf_nm = ##vol_surf_nm##;
 
 ###!load_vol_surf_data - load volatity surface data
-SELECT scn_no, maturity, strike, volatility FROM vol_surf_data WHERE vol_surf_nm = ##vol_surf_nm##;
+SELECT scn_no, tenor, strike, volatility FROM vol_surf_data WHERE vol_surf_nm = ##vol_surf_nm##;
     
 ###!freq_def - table holding frequency definitions
 CREATE TABLE IF NOT EXISTS freq_def
@@ -137,13 +137,13 @@ CREATE TABLE IF NOT EXISTS bnd_data
     ptf VARCHAR(10) NOT NULL,
     account VARCHAR(50),
     isin VARCHAR(15),
+    rtg VARCHAR(5),
     comments VARCHAR(256),
     bnd_type VARCHAR(10),
     fix_type VARCHAR(5),
-    rtg VARCHAR(5),
     ccy_nm CHAR(3) NOT NULL,
     nominal FLOAT NOT NULL,
-    deal_date INT NOT NULL,
+    value_date INT NOT NULL,
     maturity_date INT NOT NULL,
     dcm VARCHAR(10),
     acc_int FLOAT,
@@ -152,11 +152,11 @@ CREATE TABLE IF NOT EXISTS bnd_data
     cpn_freq VARCHAR(5),
     first_fix_date INT,
     fix_freq VARCHAR(5),
+    rate_mult FLOAT,
+    rate_add FLOAT,
     first_amort_date INT,
     amort_freq VARCHAR(5),
     amort FLOAT,
-    rate_mult FLOAT,
-    rate_add FLOAT,
     crv_disc VARCHAR(20) NOT NULL,
     crv_fwd VARCHAR(20),
     FOREIGN KEY (ccy_nm) REFERENCES ccy_def(ccy_nm),
@@ -194,22 +194,22 @@ CREATE TABLE IF NOT EXISTS ann_data
     ptf VARCHAR(10) NOT NULL,
     account VARCHAR(50),
     isin VARCHAR(15),
+    rtg VARCHAR(5),
     comments VARCHAR(256),
     ann_type VARCHAR(10),
     fix_type VARCHAR(5),
-    rtg VARCHAR(5),
     ccy_nm CHAR(3) NOT NULL,
     nominal FLOAT NOT NULL,
-    deal_date INT NOT NULL,
+    value_date INT NOT NULL,
     maturity_date INT NOT NULL,
     acc_int FLOAT,
     internal_rate FLOAT,
-    rate_mult FLOAT,
-    rate_add FLOAT,
     first_ann_date INT NOT NULL,
     ann_freq VARCHAR(5),
     first_fix_date INT,
     fix_freq VARCHAR(5),
+    rate_mult FLOAT,
+    rate_add FLOAT,
     crv_disc VARCHAR(20) NOT NULL,
     crv_fwd VARCHAR(20),
     FOREIGN KEY (ccy_nm) REFERENCES ccy_def(ccy_nm),
@@ -247,23 +247,21 @@ CREATE TABLE IF NOT EXISTS cap_floor_data
     ptf VARCHAR(10) NOT NULL,
     account VARCHAR(50),
     isin VARCHAR(15),
+    rtg VARCHAR(5),
     comments VARCHAR(256),
     cap_floor_type VARCHAR(10),
     fix_type VARCHAR(5),
-    rtg VARCHAR(5),
     ccy_nm CHAR(3) NOT NULL,
     nominal FLOAT NOT NULL,
-    deal_date INT NOT NULL,
+    value_date INT NOT NULL,
     maturity_date INT NOT NULL,
     dcm VARCHAR(10),
-    acc_int FLOAT,
-    cpn_rate FLOAT,
     cap_rate FLOAT,
     cap_vol_surf_nm VARCHAR(20),
     floor_rate FLOAT,
     floor_vol_surf_nm VARCHAR(20),
-    first_cpn_date INT,
-    cpn_freq VARCHAR(5),
+    first_int_date INT,
+    int_freq VARCHAR(5),
     first_fix_date INT,
     fix_freq VARCHAR(5),
     first_amort_date INT,
@@ -273,13 +271,13 @@ CREATE TABLE IF NOT EXISTS cap_floor_data
     crv_fwd VARCHAR(20),
     FOREIGN KEY (ccy_nm) REFERENCES ccy_def(ccy_nm),
     FOREIGN KEY (dcm) REFERENCES dcm_def(dcm),
-    FOREIGN KEY (cpn_freq) REFERENCES freq_def(freq),
+    FOREIGN KEY (int_freq) REFERENCES freq_def(freq),
     FOREIGN KEY (fix_freq) REFERENCES freq_def(freq),
     FOREIGN KEY (amort_freq) REFERENCES freq_def(freq),
     FOREIGN KEY (cap_vol_surf_nm) REFERENCES vol_surf_def(vol_surf_nm),
     FOREIGN KEY (floor_vol_surf_nm) REFERENCES vol_surf_def(vol_surf_nm),
     FOREIGN KEY (crv_disc) REFERENCES crv_def(crv_nm),
-    FOREIGN KEY (fwd_disc) REFERENCES crv_def(crv_nm),
+    FOREIGN KEY (crv_fwd) REFERENCES crv_def(crv_nm),
     UNIQUE (ent_nm, parent_id, contract_id, ptf)
 );
 
@@ -291,9 +289,61 @@ CREATE TABLE IF NOT EXISTS cap_floor_npv
     parent_id VARCHAR(10) NOT NULL,
     contract_id VARCHAR(10) NOT NULL,
     ptf  VARCHAR(10) NOT NULL,
-    acc_int FLOAT NOT NULL,
+    cap_npv FLOAT NOT NULL,
+    cap_npv_ref_ccy FLOAT NOT NULL,
+    floor_npv FLOAT NOT NULL,
+    floor_npv_ref_ccy FLOAT NOT NULL,
+    tot_npv FLOAT NOT NULL,
+    tot_npv_ref_ccy FLOAT NOT NULL,
+    FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES cap_floor_data(ent_nm, parent_id, contract_id, ptf)
+    UNIQUE (scn_no, ent_nm, parent_id, contract_id, ptf)
+)
+
+###!swaption_data - table holding swaption definitions
+CREATE TABLE IF NOT EXISTS swaption_data
+(
+    ent_nm VARCHAR(5) NOT NULL,
+    parent_id VARCHAR(10) NOT NULL,
+    contract_id VARCHAR(10) NOT NULL,
+    issuer_id VARCHAR(15),
+    ptf VARCHAR(10) NOT NULL,
+    account VARCHAR(50),
+    isin VARCHAR(15),
+    rtg VARCHAR(5),
+    comments VARCHAR(256),
+    swaption_type VARCHAR(10),
+    ccy_nm CHAR(3) NOT NULL,
+    nominal FLOAT NOT NULL,
+    value_date INT NOT NULL,
+    maturity_date INT NOT NULL,
+    dcm VARCHAR(10),
+    swaption_rate FLOAT,
+    swaption_vol_surf_nm VARCHAR(20),
+    fix_freq VARCHAR(5),
+    first_amort_date INT,
+    amort_freq VARCHAR(5),
+    amort FLOAT,
+    crv_disc VARCHAR(20) NOT NULL,
+    crv_fwd VARCHAR(20),
+    FOREIGN KEY (ccy_nm) REFERENCES ccy_def(ccy_nm),
+    FOREIGN KEY (dcm) REFERENCES dcm_def(dcm),
+    FOREIGN KEY (fix_freq) REFERENCES freq_def(freq),
+    FOREIGN KEY (amort_freq) REFERENCES freq_def(freq),
+    FOREIGN KEY (swaption_vol_surf_nm) REFERENCES vol_surf_def(vol_surf_nm),
+    FOREIGN KEY (crv_disc) REFERENCES crv_def(crv_nm),
+    FOREIGN KEY (crv_fwd) REFERENCES crv_def(crv_nm),
+    UNIQUE (ent_nm, parent_id, contract_id, ptf)
+);
+
+###!swaption_npv - table holding risk measures for swaptions
+CREATE TABLE IF NOT EXISTS swaption_npv
+(
+    scn_no INT NOT NULL,
+    ent_nm VARCHAR(5) NOT NULL,
+    parent_id VARCHAR(10) NOT NULL,
+    contract_id VARCHAR(10) NOT NULL,
+    ptf  VARCHAR(10) NOT NULL,
     npv FLOAT NOT NULL,
-    acc_int_ref_ccy FLOAT NOT NULL,
     npv_ref_ccy FLOAT NOT NULL,
     FOREIGN KEY (ent_nm, parent_id, contract_id, ptf) REFERENCES cap_floor_data(ent_nm, parent_id, contract_id, ptf)
     UNIQUE (scn_no, ent_nm, parent_id, contract_id, ptf)

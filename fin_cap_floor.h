@@ -7,8 +7,7 @@
 #include "lib_aux.h"
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
-#include "fin_fx.h"
-#include "fin_bond.h"
+#include "fin_cap_floor.h"
 
 int main()
 {
@@ -25,7 +24,9 @@ int main()
     std::string crv_def = "data/crv_def.csv";
     std::string interbcrv_eur = "data/curves/interbcrv_eur.csv";
     std::string spreadcrv_bef = "data/curves/spreadcrv_bef.csv";
-    std::string bnd_data = "data/bnd_data.csv";
+    std::string vol_surf_def = "data/vol_surf_def.csv";
+    std::string vol_surf_data = "data/vol_surf_data.csv";
+    std::string cap_floor_data = "data/cap_floor_data.csv";
     std::string sql;
     myDataFrame * rslt = new myDataFrame();
     myDate calc_date = myDate(20211203);
@@ -61,10 +62,16 @@ int main()
     sql = read_sql(sql_file_nm, "crv_data");
     db.exec(sql);
 
-    sql = read_sql(sql_file_nm, "bnd_data");
+    sql = read_sql(sql_file_nm, "vol_surf_def");
     db.exec(sql);
 
-    sql = read_sql(sql_file_nm, "bnd_npv");
+    sql = read_sql(sql_file_nm, "vol_surf_data");
+    db.exec(sql);
+
+    sql = read_sql(sql_file_nm, "cap_floor_data");
+    db.exec(sql);
+
+    sql = read_sql(sql_file_nm, "cap_floor_npv");
     db.exec(sql);
 
     // delete old content in the tables
@@ -75,8 +82,10 @@ int main()
     db.exec("DELETE FROM dcm_def;");
     db.exec("DELETE FROM crv_def;");
     db.exec("DELETE FROM crv_data;");
-    db.exec("DELETE FROM bnd_data;");
-    db.exec("DELETE FROM bnd_npv;");
+    db.exec("DELETE FROM vol_surf_def;");
+    db.exec("DELETE FROM vol_surf_data;");
+    db.exec("DELETE FROM cap_floor_data;");
+    db.exec("DELETE FROM cap_floor_npv;");
 
     // create dataframes from .csv files and store them into database
     rslt->read(cnty_def, sep, quotes);
@@ -110,15 +119,23 @@ int main()
     rslt->read(spreadcrv_bef, sep, quotes);
     db.upload_tbl(*rslt, "crv_data", delete_old_data);
     rslt->clear();
+   
+    rslt->read(vol_surf_def, sep, quotes);
+    db.upload_tbl(*rslt, "vol_surf_def", delete_old_data);
+    rslt->clear();
 
-    rslt->read(bnd_data, sep, quotes);
-    db.upload_tbl(*rslt, "bnd_data", delete_old_data);
+    rslt->read(vol_surf_data, sep, quotes);
+    db.upload_tbl(*rslt, "vol_surf_data", delete_old_data);
+    rslt->clear();
+
+    rslt->read(cap_floor_data, sep, quotes);
+    db.upload_tbl(*rslt, "cap_floor_data", delete_old_data);
     rslt->clear();
 
     // vacuum SQLite database file to avoid its excessive growth
     db.vacuum();
 
-    std::cout << get_timestamp() + " - initiating curves and FX rates..." << std::endl;
+    std::cout << get_timestamp() + " - initiating curves, FX rates and volatility surfaces..." << std::endl;
 
     // load FX rates
     myFx fx = myFx(db, sql_file_nm);
@@ -126,27 +143,30 @@ int main()
     // load all curves
     myCurves crvs = myCurves(db, sql_file_nm, calc_date);
 
-    std::cout << get_timestamp() + " - initiating bonds..." << std::endl;
+    // load all volatility surfaces
+    myVolSurfaces vol_surfs = myVolSurfaces(db, sql_file_nm);
+
+    std::cout << get_timestamp() + " - initiating caps / floors..." << std::endl;
 
     // define entity and portfolio
     std::string ent_nm = "kbc";
-    std::string ptf = "bnd";
+    std::string ptf = "cap_floor";
 
-    // load bonds
-    myCapsFloors caps_flrs = myCapsFloors(db, "SELECT * FROM bnd_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
+    // load caps / floors
+    myCapsFloors caps_flrs = myCapsFloors(db, "SELECT * FROM cap_floor_data WHERE ent_nm = '" + ent_nm + "' AND ptf = '" + ptf + "';", calc_date);
 
     // define scenario number and reference currency to be used in valuation
     int scn_no = 1;
     std::string ref_ccy_nm = "EUR";
 
-    std::cout << get_timestamp() + " - evaluating bonds on a single core..." << std::endl;
+    std::cout << get_timestamp() + " - evaluating caps / floors on a single core..." << std::endl;
 
-    // evaluate bonds using single core
-    caps_flrs.calc_npv(scn_no, crvs, fx, ref_ccy_nm);
+    // evaluate caps / floors using single core
+    caps_flrs.calc_npv(scn_no, crvs, fx, vol_surfs, ref_ccy_nm);
+    
+    std::cout << get_timestamp() + " - evaluating caps / floors using multithreading..." << std::endl;
 
-    std::cout << get_timestamp() + " - evaluating bonds using multithreading..." << std::endl;
-
-    // evaluate annuties using multiple cores
+    // evaluate caps / floors using multiple cores
     int threads_no = 4;
 
     std::cout << get_timestamp() + " -    spliting contracts..." << std::endl;
@@ -158,7 +178,7 @@ int main()
     std::vector<std::thread> workers;
     for (int thread_idx = 0; thread_idx < threads_no; thread_idx++)
     {
-        workers.emplace_back(caps_flrs_thrd[thread_idx].calc_npv_thrd(scn_no, crvs, fx, ref_ccy_nm));
+        workers.emplace_back(caps_flrs_thrd[thread_idx].calc_npv_thrd(scn_no, crvs, fx, vol_surfs, ref_ccy_nm));
     }
 
     std::cout << get_timestamp() + " -    waiting for individual threads to finish..." << std::endl;
@@ -199,6 +219,7 @@ int main()
 #include "lib_date.h"
 #include "fin_curve.h"
 #include "fin_fx.h"
+#include "fin_vol_surf.h"
 
 // event data type
 struct cap_flr_event
@@ -209,27 +230,28 @@ struct cap_flr_event
     bool amort_flg = false;
     double amort_payment = 0.0;
     double nominal_end = 0.0;
-    bool is_cpn_payment = false;
-    double cpn = 0.0;
+    double int_rate = 0.0;
     bool fix_flg = false;
-    bool is_cpn_fixed = false;
-    double cpn_year_frac = 0.0;
+    bool is_int_fixed = false;
+    double int_year_frac = 0.0;
     double df = 0.0;
     std::vector<myDate> repricing_dates;    
     std::vector<double> par_nominals_begin;
     std::vector<double> par_nominals_end;
-    bool opt_flg = false;
-    double caplet_rate = 0.0;
-    double caplet_vol = 0.0;
+    double opt_mat = 0.0;
+    double caplet_vol = -1.0;
     double caplet_d = 0.0;
+    double caplet_n = 0.0;
+    double caplet_N = 0.0;
     double caplet_npv = 0.0;
-    double floorlet_rate = 0.0;
-    double floorlet_vol = 0.0;
+    double floorlet_vol = -1.0;
     double floorlet_d = 0.0;
+    double floorlet_n = 0.0;
+    double floorlet_N = 0.0;
     double floorlet_npv = 0.0;
 };
 
-// bond data
+// cap / floor data
 struct cap_flr_info
 {
     std::string ent_nm;
@@ -241,24 +263,20 @@ struct cap_flr_info
 	std::string isin;
     std::string comments;
     std::string cap_floor_type;
-	bool is_fixed = true;
 	std::string fix_type;
 	std::string rtg;
 	std::string ccy_nm;
 	double nominal = 0.0;
-	myDate deal_date;
+    myDate calc_date;
+	myDate value_date;
 	myDate maturity_date;
     std::string dcm;
-    bool is_acc_int = false;
-    double acc_int = 0.0;
-    double acc_int_ref_ccy = 0.0;
-	double cpn_rate = 0.0;
     double cap_rate = 0.0;
     std::string cap_vol_surf;
     double floor_rate = 0.0;
     std::string floor_vol_surf;
-	myDate first_cpn_date;
-	std::string cpn_freq;
+	myDate first_int_date;
+	std::string int_freq;
 	myDate first_fix_date;
 	std::string fix_freq;
 	myDate first_amort_date;
@@ -266,8 +284,12 @@ struct cap_flr_info
 	double amort = 0.0;
 	std::string crv_disc;
 	std::string crv_fwd;
-    double npv = 0.0;
-    double npv_ref_ccy = 0.0;
+    double cap_npv = 0.0;
+    double cap_npv_ref_ccy = 0.0;
+    double floor_npv = 0.0;
+    double floor_npv_ref_ccy = 0.0;
+    double tot_npv = 0.0;
+    double tot_npv_ref_ccy = 0.0;
     std::string wrn_msg = "";
     std::vector<cap_flr_event> events;
 };
@@ -297,7 +319,7 @@ class myCapsFloors
         void clear(){this->info.clear();};
         std::vector<myCapsFloors> split(const int &threads_no);
         void merge(std::vector<myCapsFloors> &caps_flrs);
-        void calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm);
-        std::thread calc_npv_thrd(const int &scn_no, const myCurves &crvs, const myFx &fx, const std::string &ref_ccy_nm);
+        void calc_npv(const int &scn_no, const myCurves &crvs, const myFx &fx, const myVolSurfaces &vol_surfs, const std::string &ref_ccy_nm);
+        std::thread calc_npv_thrd(const int &scn_no, const myCurves &crvs, const myFx &fx, const myVolSurfaces &vol_surfs, const std::string &ref_ccy_nm);
         void write_npv(mySQLite &db, const int &scn_no, const std::string &ent_nm, const std::string &ptf);
 };

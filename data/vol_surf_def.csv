@@ -2,3 +2,4 @@ vol_surf_nm,ccy_nm,underlying,vol_surf_type,comments
 CHAR,CHAR,CHAR,CHAR,CHAR
 CAP_VOL_EUR,EUR,INTERBCRV.EUR,cap,normal model
 FLR_VOL_EUR,EUR,INTERBCRV.EUR,floor,normal model
+SWPT_6M_VOL_EUR,EUR,INTERBCRV.EUR,swaption,normal model

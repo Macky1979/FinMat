@@ -95,15 +95,18 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             // bond ISIN
             bnd.isin = rslt->tbl.values[bnd_idx][6];
 
+            // bond rating
+            bnd.rtg = rslt->tbl.values[bnd_idx][7];
+
             // comments
-            bnd.comments = rslt->tbl.values[bnd_idx][7];
+            bnd.comments = rslt->tbl.values[bnd_idx][8];
 
             // bond type, e.g. PAM, RGM, ZCB
-            bnd.bnd_type = rslt->tbl.values[bnd_idx][8];
+            bnd.bnd_type = rslt->tbl.values[bnd_idx][9];
 
             // fixing type - "fwd" and "par" for a floating bond vs.
             // "fix" for a fixed bond
-            aux = rslt->tbl.values[bnd_idx][9];
+            aux = rslt->tbl.values[bnd_idx][10];
             if ((aux.compare("fwd") != 0) && (aux.compare("par") != 0) && (aux.compare("fix") != 0))
             {
                 bnd.wrn_msg += "unsupported fixing type " + aux + ";";
@@ -120,17 +123,14 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             }
             bnd.fix_type = aux;
 
-            // bond rating
-            bnd.rtg = rslt->tbl.values[bnd_idx][10];
-
             // bond currency, e.g. EUR, CZK
             bnd.ccy_nm = rslt->tbl.values[bnd_idx][11];
 
             // bond nominal
             bnd.nominal = stod(rslt->tbl.values[bnd_idx][12]);
 
-            // bond deal date, i.e. date when the bond entered / will enter into books
-            bnd.deal_date = myDate(stoi(rslt->tbl.values[bnd_idx][13]));
+            // value date
+            bnd.value_date = myDate(stoi(rslt->tbl.values[bnd_idx][13]));
 
             // bond maturity date
             bnd.maturity_date = myDate(stoi(rslt->tbl.values[bnd_idx][14]));
@@ -270,10 +270,61 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                 }
             }
 
+            // multiplier applied on bond repricing rate
+            aux = rslt->tbl.values[bnd_idx][22];
+            if (aux.compare("") == 0) // rate multiplier not provided
+            {
+                if (!bnd.is_fixed) // floating bond
+                {
+                    bnd.wrn_msg += "rate multiplier not provided for a floating bond;";
+                    bnd.rate_mult = 1.0;
+                }
+                else // fixed bond
+                {
+                    bnd.rate_mult = 0.0;
+                }
+                
+            }
+            else // rate multiplied provided
+            {
+                if (!bnd.is_fixed) // floating bond
+                {
+                    bnd.rate_mult = stod(aux);
+                }
+                else // fixed bond
+                {
+                    bnd.wrn_msg += "rate multiplier provided for a fixed bond;";
+                    bnd.rate_mult = 0.0;
+                }
+            }
+
+            // spread to be added to a repricing rate
+            aux = rslt->tbl.values[bnd_idx][23];
+            if (aux.compare("") == 0) // spread not specified
+            {
+                if (!bnd.is_fixed) // floating bond
+                {
+                    bnd.wrn_msg += "repricing spread not provided for a flating bond;";
+                }
+                bnd.rate_add = 0.0;
+            }
+            else // spread specified
+            {
+                if (!bnd.is_fixed) // floating bond
+                {
+                    bnd.rate_add = stod(aux);
+                }
+                else // fixed bond
+                {
+                    bnd.wrn_msg += "repricing spread provided for a fixed bond;";
+                    bnd.rate_add = 0.0;
+                }
+            }
+
             // amortization
-            std::string first_amort_date = rslt->tbl.values[bnd_idx][22];
-            std::string amort_freq = rslt->tbl.values[bnd_idx][23];
-            std::string amort = rslt->tbl.values[bnd_idx][24];
+            std::string first_amort_date = rslt->tbl.values[bnd_idx][24];
+            std::string amort_freq = rslt->tbl.values[bnd_idx][25];
+            std::string amort = rslt->tbl.values[bnd_idx][26];
             
             if (amort.compare("") == 0) // amortization amount not provided
             {
@@ -316,58 +367,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     bnd.first_amort_date = myDate(stoi(first_amort_date));
                 }
             }
-            
-            // multiplier applied on bond repricing rate
-            aux = rslt->tbl.values[bnd_idx][25];
-            if (aux.compare("") == 0) // rate multiplier not provided
-            {
-                if (!bnd.is_fixed) // floating bond
-                {
-                    bnd.wrn_msg += "rate multiplier not provided for a floating bond;";
-                    bnd.rate_mult = 1.0;
-                }
-                else // fixed bond
-                {
-                    bnd.rate_mult = 0.0;
-                }
-                
-            }
-            else // rate multiplied provided
-            {
-                if (!bnd.is_fixed) // floating bond
-                {
-                    bnd.rate_mult = stod(aux);
-                }
-                else // fixed bond
-                {
-                    bnd.wrn_msg += "rate multiplier provided for a fixed bond;";
-                    bnd.rate_mult = 0.0;
-                }
-            }
-
-            // spread to be added to a repricing rate
-            aux = rslt->tbl.values[bnd_idx][26];
-            if (aux.compare("") == 0) // spread not specified
-            {
-                if (!bnd.is_fixed) // floating bond
-                {
-                    bnd.wrn_msg += "repricing spread not provided for a flating bond;";
-                }
-                bnd.rate_add = 0.0;
-            }
-            else // spread specified
-            {
-                if (!bnd.is_fixed) // floating bond
-                {
-                    bnd.rate_add = stod(aux);
-                }
-                else // fixed bond
-                {
-                    bnd.wrn_msg += "repricing spread provided for a fixed bond;";
-                    bnd.rate_add = 0.0;
-                }
-            }
-            
+                        
             // discounting curve
             bnd.crv_disc = rslt->tbl.values[bnd_idx][27];
 
@@ -399,20 +399,20 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
 
         // perform other sanity checks
        
-            // deal date
-            if (bnd.deal_date.get_days_no() > bnd.maturity_date.get_days_no())
+            // value date
+            if (bnd.value_date.get_days_no() > bnd.maturity_date.get_days_no())
             {
-                bnd.wrn_msg += "deal date cannot by greater than maturity date;";
-                bnd.deal_date = bnd.maturity_date;
+                bnd.wrn_msg += "value date cannot by greater than maturity date;";
+                bnd.value_date = bnd.maturity_date;
             }
 
             // first coupon date
-            if (bnd.first_cpn_date.get_days_no() <= bnd.deal_date.get_days_no())
+            if (bnd.first_cpn_date.get_days_no() <= bnd.value_date.get_days_no())
             {
-                bnd.wrn_msg += "first coupon date cannot be lower or equal to deal date;";
-                bnd.first_cpn_date = bnd.deal_date;
+                bnd.wrn_msg += "first coupon date cannot be lower or equal to value date;";
+                bnd.first_cpn_date = bnd.value_date;
                 bnd.first_cpn_date.add(bnd.cpn_freq);
-                while (bnd.first_cpn_date.get_days_no() < bnd.deal_date.get_days_no())
+                while (bnd.first_cpn_date.get_days_no() < bnd.value_date.get_days_no())
                 {
                     bnd.first_cpn_date.add(bnd.cpn_freq);
                 }
@@ -427,9 +427,9 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             // first fixing date
             if (!bnd.is_fixed)
             {
-                if (bnd.first_fix_date.get_days_no() <= bnd.deal_date.get_days_no())
+                if (bnd.first_fix_date.get_days_no() <= bnd.value_date.get_days_no())
                 {
-                    bnd.wrn_msg += "first fixing date cannot be lower or equal to deal date;";
+                    bnd.wrn_msg += "first fixing date cannot be lower or equal to value date;";
                     bnd.first_fix_date = bnd.first_cpn_date;
                 }
 
@@ -449,9 +449,9 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
             // first amortization date
             if (bnd.amort != 0)
             {
-                if (bnd.first_amort_date.get_days_no() <= bnd.deal_date.get_days_no())
+                if (bnd.first_amort_date.get_days_no() <= bnd.value_date.get_days_no())
                 {
-                    bnd.wrn_msg += "first amortization date cannot be lower or equal to deal date;";
+                    bnd.wrn_msg += "first amortization date cannot be lower or equal to value date;";
                     bnd.first_amort_date = bnd.first_cpn_date;
                 }
 
@@ -534,7 +534,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                     evnt.cpn_year_frac = day_count_method(date1, date2, bnd.dcm);
                     evnt.is_cpn_payment = true;
 
-                    // indicated that coupon payment is fixed and therefore
+                    // indicate that coupon payment is fixed and therefore
                     // could be calculated without a scenario knowledge
                     if (bnd.is_fixed)
                     {
@@ -548,7 +548,7 @@ myBonds::myBonds(const mySQLite &db, const std::string &sql, const myDate &calc_
                         {
                             evnt.is_cpn_fixed = true;
                         }
-                        // coupon payments in fugure
+                        // coupon payments in future
                         else
                         {
                             evnt.is_cpn_fixed = false;

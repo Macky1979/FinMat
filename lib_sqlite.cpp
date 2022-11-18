@@ -17,6 +17,7 @@
 mySQLite::mySQLite(const char *db_file_nm, const bool read_only, int wait_max_seconds)
 {
     // open SQLite database file name
+    this->wait_max_seconds = wait_max_seconds;
     this->open(db_file_nm, read_only);
 }
 
@@ -29,7 +30,7 @@ void mySQLite::open(const char *db_file_nm, const bool read_only)
 {
     // SQLite status code
     int sts;
-    int counter = wait_max_seconds;
+    int counter = this->wait_max_seconds;
 
     // wait for the SQLite database file being available
     if (read_only)
@@ -235,8 +236,6 @@ myDataFrame * mySQLite::query(const std::string &sql) const
 
     // number of columns in dataFrame
     int cols_no;
-
-
 
     // data row of dataframe
     std::vector<std::string> row;

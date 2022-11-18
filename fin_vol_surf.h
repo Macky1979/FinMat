@@ -2,6 +2,7 @@
 #include <string>
 #include "lib_dataframe.h"
 #include "lib_sqlite.h"
+#include "lib_date.h"
 #include "fin_vol_surf.h"
 
 int main()
@@ -15,6 +16,7 @@ int main()
     std::string vol_surf_data = "data/vol_surf_data.csv";
     std::string sql;
     myDataFrame * rslt = new myDataFrame();
+    myDate calc_date = myDate(20211203);
     std::string sep = ",";
     bool quotes = false;
     bool read_only;
@@ -73,13 +75,13 @@ int main()
     // interpolate volatility
     std::string vol_surf_nm = "CAP_VOL_EUR";
     int scn_no = 1;
-    std::vector<double> maturities = {0.572063, 1.07397, 9.07945, 9.57808};
+    std::vector<double> tenors = {365, 730, 1460, 1825};
     std::vector<double> strikes = {0.02, 0.02, 0.02, 0.02};
-    std::vector<double> volatilities = vol_surfs.get_vols(vol_surf_nm, scn_no, maturities, strikes);
+    std::vector<double> volatilities = vol_surfs.get_vols(vol_surf_nm, scn_no, tenors, strikes);
 
-    for (int idx = 0; idx < maturities.size(); idx++)
+    for (int idx = 0; idx < tenors.size(); idx++)
     {
-        std::cout << "maturity: " + std::to_string(maturities[idx]) + ", strike: " + std::to_string(strikes[idx]) + " -> volatility: " + std::to_string(volatilities[idx]) << std::endl;
+        std::cout << "tenor: " + std::to_string(static_cast<int>(tenors[idx])) + "D, strike: " + std::to_string(strikes[idx]) + " -> volatility: " + std::to_string(volatilities[idx]) << std::endl;
     }
 
     // everything OK
@@ -99,7 +101,7 @@ int main()
 // volatility surface structure
 struct vol_surf_def
 {
-    std::vector<double> maturities;
+    std::vector<double> tenors;
     std::vector<double> strikes;
     std::vector<double> volatilities;
 };
@@ -122,7 +124,7 @@ class myVolSurface
         ~myVolSurface(){};
 
         // object function declarations
-        std::vector<double> get_vols(const int &scn_no, const std::vector<double> &maturities, const std::vector<double> &strikes) const;
+        std::vector<double> get_vols(const int &scn_no, const std::vector<double> &tenors, const std::vector<double> &strikes) const;
 };
 
 // define volatility surfaces class
@@ -139,5 +141,5 @@ class myVolSurfaces
         ~myVolSurfaces(){};
 
         // object function declarations
-        std::vector<double> get_vols(const std::string &vol_surf_nm, const int &scn_no, const std::vector<double> &maturities, const std::vector<double> &strikes) const;
+        std::vector<double> get_vols(const std::string &vol_surf_nm, const int &scn_no, const std::vector<double> &tenors, const std::vector<double> &strikes) const;
 };

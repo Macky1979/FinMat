@@ -1,5 +1,5 @@
-ent_nm,parent_id,contract_id,issuer_id,ptf,account,isin,comments,ann_type,fix_type,rtg,ccy_nm,nominal,deal_date,maturity_date,acc_int,internal_rate,rate_mult,rate_add,first_ann_date,ann_freq,first_fix_date,fix_freq,crv_disc,crv_fwd
-CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,FLOAT,INT,INT,FLOAT,FLOAT,FLOAT,FLOAT,INT,CHAR,INT,CHAR,CHAR,CHAR
-kbc,0,0,n/a,ann,/assets/mortgages,ANN01,n/a,ANN,fix,--na--,eur,1000,20210630,20410630,,0.01,1,0.01,20220630,1Y,,,INTERBCRV.EUR,
-kbc,1,0,n/a,ann,/assets/mortgages,ANN02,n/a,ANN,par,--na--,eur,1000,20210630,20410630,,0.01,1,0.01,20220630,1Y,20310630,10Y,INTERBCRV.EUR,INTERBCRV.EUR
-kbc,2,0,n/a,ann,/assets/mortgages,ANN03,n/a,ANN,par,--na--,eur,1000,20210630,20410630,,0.01,1,0.01,20220630,1Y,20260630,5Y,INTERBCRV.EUR,INTERBCRV.EUR
+ent_nm,parent_id,contract_id,issuer_id,ptf,account,isin,rtg,comments,ann_type,fix_type,ccy_nm,nominal,value_date,maturity_date,acc_int,internal_rate,first_ann_date,ann_freq,first_fix_date,fix_freq,rate_mult,rate_add,crv_disc,crv_fwd
+CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,FLOAT,INT,INT,FLOAT,FLOAT,INT,CHAR,INT,CHAR,FLOAT,FLOAT,CHAR,CHAR
+kbc,0,0,n/a,ann,/assets/mortgages,ANN01,--na--,n/a,ANN,fix,eur,1000,20210630,20410630,,0.01,20220630,1Y,20260630,5Y,1,0.01,INTERBCRV.EUR,INTERBCRV.EUR
+kbc,1,0,n/a,ann,/assets/mortgages,ANN02,--na--,n/a,ANN,par,eur,1000,20210630,20410630,,0.01,20220630,1Y,20310630,10Y,1,0.01,INTERBCRV.EUR,INTERBCRV.EUR
+kbc,2,0,n/a,ann,/assets/mortgages,ANN03,--na--,n/a,ANN,par,eur,1000,20210630,20410630,,0.01,20220630,1Y,20260630,5Y,1,0.01,INTERBCRV.EUR,INTERBCRV.EUR

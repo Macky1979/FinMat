@@ -1,0 +1,4 @@
+ent_nm,parent_id,contract_id,issuer_id,ptf,account,isin,rtg,comments,swaption_type,ccy_nm,nominal,value_date,maturity_date,dcm,swaption_rate,swaption_vol_surf_nm,fix_freq,first_amort_date,amort_freq,amort,crv_disc,crv_fwd
+CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,CHAR,FLOAT,INT,INT,CHAR,FLOAT,CHAR,CHAR,INT,CHAR,FLOAT,CHAR,CHAR
+kbc,0,0,n/a,swpt,/assets/swpt,SWPT01,n/a,n/a,call,EUR,1000,20230630,20310630,ACT_360,0.01,SWPT_6M_VOL_EUR,6M,,,,INTERBCRV.EUR,INTERBCRV.EUR
+kbc,1,0,n/a,swpt,/assets/swpt,SWPT02,n/a,n/a,put,EUR,1000,20230630,20310630,ACT_360,0.01,SWPT_6M_VOL_EUR,6M,,,,INTERBCRV.EUR,INTERBCRV.EUR

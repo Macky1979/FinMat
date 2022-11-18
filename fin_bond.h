@@ -239,7 +239,7 @@ struct bnd_info
 	std::string rtg;
 	std::string ccy_nm;
 	double nominal = 0.0;
-	myDate deal_date;
+	myDate value_date;
 	myDate maturity_date;
     std::string dcm;
     bool is_acc_int = false;

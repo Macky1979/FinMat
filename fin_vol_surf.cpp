@@ -40,7 +40,7 @@ myVolSurface::myVolSurface(const mySQLite &db, const std::string &sql_file_nm, c
     // go scenario by scenario
     int scn_no = -1;
     bool is_new_scn = false;
-    std::vector<double> maturities;
+    std::vector<double> tenors;
     std::vector<double> strikes;
     std::vector<double> volatilities;
 
@@ -50,19 +50,19 @@ myVolSurface::myVolSurface(const mySQLite &db, const std::string &sql_file_nm, c
         if (((stoi(rslt->tbl.values[idx][0]) != scn_no) && (scn_no != -1)) || (idx == rslt->tbl.values.size() - 1))
         {
             // create a tuple of scenario and volatility surface
-            vol_surf_def vol_surf_aux = {maturities, strikes, volatilities};
+            vol_surf_def vol_surf_aux = {tenors, strikes, volatilities};
             std::tuple<int, vol_surf_def> vol_surf = {scn_no, vol_surf_aux};
             this->vol_surf.insert(std::pair<int, vol_surf_def>(scn_no, vol_surf_aux));
 
             // clear variables
-            maturities.clear();
+            tenors.clear();
             strikes.clear();
             volatilities.clear();
         }
         // load data
         {
             scn_no = stoi(rslt->tbl.values[idx][0]);
-            maturities.push_back(stod(rslt->tbl.values[idx][1]));
+            tenors.push_back(stod(rslt->tbl.values[idx][1]));
             strikes.push_back(stod(rslt->tbl.values[idx][2]));
             volatilities.push_back(stod(rslt->tbl.values[idx][3]));
         }
@@ -103,21 +103,21 @@ myVolSurfaces::myVolSurfaces(const mySQLite &db, const std::string &sql_file_nm)
  */
 
 // get surface volatilities based on scenario number and vector of maturities and strikes
-std::vector<double> myVolSurface::get_vols(const int &scn_no, const std::vector<double> &maturities, const std::vector<double> &strikes) const
+std::vector<double> myVolSurface::get_vols(const int &scn_no, const std::vector<double> &tenors, const std::vector<double> &strikes) const
 {
     // initiate 2D interpolation object
     vol_surf_def vol_surf_aux = this->vol_surf.at(scn_no);
-    myLinInterp2D interp2D(vol_surf_aux.maturities, vol_surf_aux.strikes, vol_surf_aux.volatilities);
+    myLinInterp2D interp2D(vol_surf_aux.tenors, vol_surf_aux.strikes, vol_surf_aux.volatilities);
 
     // interpolate volatilities
-    std::vector<double> volatilities = interp2D.eval(maturities, strikes);
+    std::vector<double> volatilities = interp2D.eval(tenors, strikes);
 
     // return interpolated volatilities
     return volatilities;
 }
 
 // get year fraction based on vector of scenario numbers and tenor integer dates in yyyymmdd format
-std::vector<double> myVolSurfaces::get_vols(const std::string &vol_surf_nm, const int &scn_no, const std::vector<double> &maturities, const std::vector<double> &strikes) const
+std::vector<double> myVolSurfaces::get_vols(const std::string &vol_surf_nm, const int &scn_no, const std::vector<double> &tenors, const std::vector<double> &strikes) const
 {
-    return this->vol_surf.at(vol_surf_nm).get_vols(scn_no, maturities, strikes);
+    return this->vol_surf.at(vol_surf_nm).get_vols(scn_no, tenors, strikes);
 }
