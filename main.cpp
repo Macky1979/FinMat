@@ -145,7 +145,7 @@ int main()
 
     std::cout << get_timestamp() + " - evaluating bonds using multithreading..." << std::endl;
 
-    // evaluate annuties using multiple cores
+    // evaluate bonds using multiple cores
     int threads_no = 4;
 
     std::cout << get_timestamp() + " -    spliting contracts..." << std::endl;

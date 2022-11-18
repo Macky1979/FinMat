@@ -1,5 +1,0 @@
-# ignore ssh-keys
-ssh-key-github*
-
-# ignore database files
-*.db
