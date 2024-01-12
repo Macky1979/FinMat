@@ -1,0 +1,8 @@
+*.pub
+github_ssh_key*
+cpp_compile
+cpp_debug
+build
+*bckp*
+*.log
+callgrind*
